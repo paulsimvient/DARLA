@@ -1,0 +1,32 @@
+scenario_id: taiwan-maritime-open-data-v001
+data_mode: open_data_snapshot
+verification: internal_only
+
+sources:
+  ais:
+    provider: AISHub-style sample (synthetic reproduction for Taiwan Strait bbox)
+    path: data/ais_snapshot.csv
+    bbox: "24.5,121.2,25.5,122.5"
+    license: research_sample
+    captured_at: "2024-06-01T12:00:00Z"
+    note: Fixed snapshot ingested at scenario load; background traffic only
+
+  weather:
+    provider: Open-Meteo
+    api: "https://open-meteo.com/en/docs"
+    path: data/weather_open_meteo.json
+    model: ERA5 reanalysis
+    captured_at: "2024-06-01T12:00:00Z"
+    note: Snapshot used for environment panel; not yet coupled to sensor adjudication
+
+  map:
+    provider: MapLibre GL + Esri World Imagery + OpenStreetMap labels
+    path: data/basemap_attribution.json
+    license: mixed (see basemap_attribution.json)
+
+regression:
+  seed: 42
+  baseline_scenario: scenarios/uas-maritime-cyber/scenario.yaml
+  note: Replay hash must match baseline cyber scenario (open-data layers are non-causal)
+  detection_time: 1980
+  planted_truth_recovery: 1.00

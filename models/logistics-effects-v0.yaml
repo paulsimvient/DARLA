@@ -1,0 +1,16 @@
+model_name: logistics correlation model
+intended_use: reject correlated non-causal logistics delays
+valid_conditions:
+  - maritime ISR constructive scenario
+invalid_conditions:
+  - real supply chain simulation
+verification_score: 0.74
+validation_score: 0.65
+uncertainty_score: 0.30
+calibration_error: 0.16
+assumptions:
+  - logistics delay is scripted confounder
+required_inputs:
+  - logistics.delay
+known_failure_modes:
+  - real logistics causality not modeled

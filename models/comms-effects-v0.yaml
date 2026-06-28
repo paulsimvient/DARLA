@@ -1,0 +1,18 @@
+model_name: comms effects model
+intended_use: comms degradation and relay restoration effects
+valid_conditions:
+  - maritime ISR
+  - relay-mediated UAS coordination
+invalid_conditions:
+  - SATCOM not modeled
+verification_score: 0.80
+validation_score: 0.70
+uncertainty_score: 0.20
+calibration_error: 0.11
+assumptions:
+  - single relay node
+required_inputs:
+  - blue_relay_1.comms.latency_sec
+  - blue_relay_1.comms.packet_loss
+known_failure_modes:
+  - multi-hop routing not represented

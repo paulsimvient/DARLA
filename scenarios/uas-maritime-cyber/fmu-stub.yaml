@@ -1,0 +1,67 @@
+scenario_id: uas-maritime-cyber-fmu-stub-v001
+seed: 42
+tick_seconds: 1.0
+max_ticks: 100
+
+mission:
+  objective: detect_and_track_red_maritime_target
+  success_conditions:
+    - target_detected_before_tick: 1800
+    - track_confidence_min: 0.70
+    - engagement_authority_available: true
+
+entities:
+  - id: blue_commander
+    kind: Commander
+    side: Blue
+    components:
+      kinematic:
+        lat: 24.90
+        lon: 121.50
+        alt: 0
+
+  - id: blue_uas_1
+    kind: Platform
+    side: Blue
+    components:
+      kinematic:
+        lat: 25.0
+        lon: 122.0
+        alt: 5000
+      sensor:
+        confidence: 0.88
+        range_km: 120
+        latency_sec: 2.0
+
+  - id: red_cyber_actor
+    kind: CyberService
+    side: Red
+    components:
+      kinematic:
+        lat: 25.50
+        lon: 123.00
+        alt: 0
+      cyber:
+        integrity: 0.95
+
+scripted_events:
+  - tick: 720
+    actor: red_cyber_actor
+    action: degrade_sensor_feed
+    target: blue_uas_1
+    effect:
+      sensor_confidence_delta: -0.40
+
+relationships:
+  - type: commands
+    source: blue_commander
+    target: blue_uas_1
+
+fmus:
+  - id: uas_sensor_fmu
+    path: models/fmu/uas_sensor.fmu
+    step_size: 1.0
+    inputs:
+      - cyber_degradation: red_cyber_actor.cyber.integrity
+    outputs:
+      - sensor_confidence: blue_uas_1.sensor.confidence

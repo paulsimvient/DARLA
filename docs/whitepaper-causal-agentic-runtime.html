@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DARLA Causal-Agentic LVC Prototype — Technical White Paper</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --text: #e6edf3;
+      --muted: #8b9cb3;
+      --accent: #58a6ff;
+      --accent2: #3fb950;
+      --warn: #d29922;
+      --border: #30363d;
+      --code-bg: #161b22;
+      --max-width: 52rem;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, #1a2332 0%, #0d1117 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 1.5rem 2.5rem;
+    }
+
+    header.doc-header .inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+    }
+
+    header.doc-header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header.doc-header .subtitle {
+      color: var(--muted);
+      font-size: 1.1rem;
+      margin: 0 0 1.25rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.5rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 1.75rem 0 0.75rem;
+      color: var(--accent);
+    }
+
+    p { margin: 0 0 1rem; }
+
+    blockquote {
+      margin: 1.25rem 0;
+      padding: 1rem 1.25rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 6px 6px 0;
+      color: var(--text);
+      font-style: italic;
+    }
+
+    ul, ol {
+      margin: 0 0 1rem;
+      padding-left: 1.5rem;
+    }
+
+    li { margin-bottom: 0.35rem; }
+
+    a { color: var(--accent); }
+
+    code {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.25rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.25rem;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    tr:nth-child(even) td { background: rgba(26, 35, 50, 0.5); }
+
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+
+    .diagram .mermaid { display: flex; justify-content: center; }
+
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .toc h2 {
+      margin-top: 0;
+      border: none;
+      font-size: 1.1rem;
+    }
+
+    .toc ol { margin-bottom: 0; }
+
+    .toc a { text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .callout {
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+    }
+
+    .callout-warn {
+      border-color: var(--warn);
+    }
+
+    .callout p:last-child { margin-bottom: 0; }
+
+    .scorecard td:nth-child(2),
+    .scorecard td:nth-child(3) { white-space: nowrap; }
+
+    footer {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    @media print {
+      body { background: #fff; color: #111; }
+      header.doc-header { background: #f5f5f5; }
+      :root {
+        --surface: #f8f8f8;
+        --code-bg: #f0f0f0;
+        --border: #ccc;
+        --text: #111;
+        --muted: #444;
+        --accent: #0550ae;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="doc-header">
+    <div class="inner">
+      <h1>DARLA Causal-Agentic LVC Prototype</h1>
+      <p class="subtitle">Technical White Paper — Architecture and Runtime Behavior</p>
+      <div class="meta">
+        <span><strong>System:</strong> DARLA Causal-Agentic Live-Virtual-Constructive prototype</span>
+        <span><strong>Scenario:</strong> UAS maritime ISR cyber/comms micro-world (<code>uas-maritime-cyber-v001</code>)</span>
+        <span><strong>Status:</strong> Working research prototype — Phase A–F capabilities demonstrated in the UAS maritime cyber micro-world</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <nav class="toc">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Executive Summary</a></li>
+        <li><a href="#s1b">Implementation Maturity</a></li>
+        <li><a href="#s2">Problem Domain</a></li>
+        <li><a href="#s3">System Architecture</a></li>
+        <li><a href="#s4">The Simulation Kernel</a></li>
+        <li><a href="#s5">Per-Tick Adjudication Flow</a></li>
+        <li><a href="#s6">Event Ledger and Causal Evidence</a></li>
+        <li><a href="#s7">Dual-Loop Runtime</a></li>
+        <li><a href="#s8">Structural Causal Layer (Phase A)</a></li>
+        <li><a href="#s9">Continuous COA Orchestration (Phase E)</a></li>
+        <li><a href="#s10">Scientific Rigor Layer (Phase C)</a></li>
+        <li><a href="#s11">Execution Budgets and Live Runtime (Phase F)</a></li>
+        <li><a href="#s12">Agent Belief State (Phase D)</a></li>
+        <li><a href="#s13">Dashboard Behavior</a></li>
+        <li><a href="#s14">Determinism, Acceptance Tests, and Verification</a></li>
+        <li><a href="#s15">Reference Scenario Structure</a></li>
+        <li><a href="#s16">CLI Tooling Summary</a></li>
+        <li><a href="#s17">Known Boundaries and Non-Goals</a></li>
+        <li><a href="#s17b">Maturity Scorecard</a></li>
+        <li><a href="#s18">Conclusion</a></li>
+      </ol>
+    </nav>
+
+    <section id="s1">
+      <h2>1. Executive Summary</h2>
+      <p>
+        DARLA is a <strong>deterministic, headless C++20 simulation</strong> that models a maritime intelligence,
+        surveillance, and reconnaissance (ISR) mission degraded by cyber attack. The system is built to answer a
+        specific class of operational-science questions:
+      </p>
+      <blockquote>
+        When sensing or communications fail mid-mission, <strong>which intervention is causally justified</strong>,
+        <strong>under what authority</strong>, and <strong>can that claim survive executable falsification</strong>?
+      </blockquote>
+      <div class="callout">
+        <p>
+          <strong>Primary innovation:</strong> DARLA’s contribution is not that agents make recommendations, but that each
+          recommendation is linked to evidence, causal parents, counterfactual branch tests, authority state, model
+          validity, and replayable falsification outcomes. Unsupported recommendations are downgraded or refused rather
+          than converted into narrative explanations. The system is designed to say <strong>no</strong>.
+        </p>
+      </div>
+      <p>
+        Unlike a traditional wargame or game engine, DARLA treats the simulation as an <strong>evidence-producing
+        causal experimentation instrument</strong>, not a richer battlespace visualization. Every state transition is
+        recorded in an append-only <strong>event ledger</strong>. Causal relationships are represented in a
+        <strong>temporal causal graph</strong> and a typed <strong>relationship graph</strong> loaded from scenario YAML.
+        Online agents observe degraded state, query bounded counterfactual branches, propose
+        <strong>courses of action (COAs)</strong>, and—when authorized—schedule interventions. A separate
+        <strong>slow loop</strong> replays and falsifies those decisions asynchronously, scoring them against
+        <strong>planted causal truth</strong> and <strong>credibility contracts</strong>.
+      </p>
+      <p>
+        A React dashboard provides operational visualization (live tick streaming, map, COA lifecycle, claims panel).
+        It is a <strong>consumer</strong> of kernel outputs—not the source of simulation truth. Unreal, full LVC
+        adapters, and LLM agents remain out of scope.
+      </p>
+      <p>
+        The C++ kernel owns truth: state, events, replay hash, counterfactual branches, and credibility assessments.
+      </p>
+    </section>
+
+    <section id="s1b">
+      <h2>1.1 Implementation Maturity</h2>
+      <p>
+        This document distinguishes four levels of capability. Reviewers should not conflate them:
+      </p>
+      <pre><code>implemented generally          → module exists and runs in CI
+demonstrated in micro-world    → passing unit tests on uas-maritime-cyber scenario
+architecturally scaffolded     → interfaces present; scale behavior unproven
+planned for scale              → described intent; not yet built</code></pre>
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Maturity today</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Deterministic event ledger + replay hash</td><td>Demonstrated in micro-world (<code>darla_unit_tests</code>)</td></tr>
+          <tr><td>Dual-loop fast/slow runtime</td><td>Demonstrated in micro-world</td></tr>
+          <tr><td>Graph-native causal action estimation</td><td>Demonstrated in micro-world</td></tr>
+          <tr><td>COA orchestration + authority gate</td><td>Demonstrated in micro-world</td></tr>
+          <tr><td>Execution budgets + <code>budget_exceeded</code> events</td><td>Demonstrated in micro-world</td></tr>
+          <tr><td>Planted-truth scoring</td><td>Demonstrated in micro-world (edge recall metric)</td></tr>
+          <tr><td>Live SSE tick stream + dashboard</td><td>Implemented; analysis still batch-exported</td></tr>
+          <tr><td>Autonomous causal discovery at scale</td><td>Architecturally scaffolded / planned</td></tr>
+          <tr><td>Full production VV&amp;A tooling</td><td>Planned for scale</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="s2">
+      <h2>2. Problem Domain</h2>
+      <h3>2.1 Operational narrative</h3>
+      <p>
+        Blue forces operate a UAS over the Taiwan Strait micro-world. A red cyber actor degrades blue sensing and/or
+        communications. Mission success requires detecting a maritime target before <strong>T+1800</strong> with
+        sufficient track confidence and engagement authority.
+      </p>
+      <p>The commander must decide among interventions such as:</p>
+      <ul>
+        <li><code>isolate_compromised_sensor_feed</code></li>
+        <li><code>restore_comms_relay</code></li>
+        <li><code>enable_autonomous_search</code></li>
+        <li><code>pre_authorize_engagement</code></li>
+        <li><code>remove_logistics_delay</code> (confounder)</li>
+      </ul>
+      <p>
+        Wrong choices waste tempo; late choices cannot rewrite prior detection outcomes. Logistics delay is correlated
+        with failure but is <strong>not</strong> the root cause—a deliberate confounder for falsification testing.
+      </p>
+      <h3>2.2 Scientific narrative</h3>
+      <p>The system must support <strong>defensible causal experimentation</strong>:</p>
+      <ol>
+        <li><strong>Observe</strong> degradation through agent beliefs and events</li>
+        <li><strong>Estimate</strong> action effects via counterfactual branches, not heuristics alone</li>
+        <li><strong>Decide</strong> under explicit authorization policy</li>
+        <li><strong>Validate</strong> decisions through replay, falsification, and planted-truth scoring</li>
+        <li><strong>Replay</strong> deterministically for audit and hash verification</li>
+      </ol>
+    </section>
+
+    <section id="s3">
+      <h2>3. System Architecture</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+    subgraph UI["Dashboard (React + MapLibre)"]
+        LiveSSE["Live SSE stream (sim-live)"]
+        ExportAPI["Batch export (sim-export)"]
+        StreamAPI["Playback JSON (sim-stream)"]
+    end
+
+    subgraph Node["Node API (server.mjs :8787)"]
+        APILive["/api/live"]
+        APIExport["/api/export"]
+        APIStream["/api/stream"]
+    end
+
+    subgraph Kernel["C++ Simulation Kernel"]
+        SK["SimulationKernel"]
+        MWA["MicroWorldAdjudicator"]
+        Agents["AgentOrchestrator + Maritime Agents"]
+        Graph["RelationshipGraph + TemporalCausalGraph"]
+        Causal["CausalActionEstimator + InterventionEngine"]
+        Cred["CredibilityEngine + AsyncValidationRuntime"]
+        Budget["ExecutionBudget"]
+    end
+
+    LiveSSE --> APILive --> SK
+    ExportAPI --> APIExport --> SK
+    StreamAPI --> APIStream --> SK
+    SK --> MWA --> Agents
+    MWA --> Graph
+    Agents --> Causal
+    Agents --> Budget
+    MWA --> Cred
+        </pre>
+      </div>
+      <h3>3.1 Module map</h3>
+      <table>
+        <thead>
+          <tr><th>Module</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>sim-core</code></td><td>Kernel, scenario loading, world state, COA model, execution budgets</td></tr>
+          <tr><td><code>sim-events</code></td><td>Append-only event ledger, replay hash</td></tr>
+          <tr><td><code>sim-graph</code></td><td>Relationship graph, temporal causal graph, entity resolution</td></tr>
+          <tr><td><code>sim-adjudication</code></td><td>Per-tick world adjudication, emergence detection</td></tr>
+          <tr><td><code>sim-agents</code></td><td>Heterogeneous agent framework, authority gate, maritime bindings</td></tr>
+          <tr><td><code>sim-causal</code></td><td>Intervention engine, action estimator, claim builder, planted truth</td></tr>
+          <tr><td><code>sim-credibility</code></td><td>Credibility contracts, model risk, async slow-loop validation</td></tr>
+          <tr><td><code>sim-tools</code></td><td>Scenario runner, CLI option parsing, agent runtime configuration</td></tr>
+          <tr><td><code>sim-live</code> / <code>sim-stream</code> / <code>sim-export</code></td><td>Output adapters for dashboard and CLI</td></tr>
+          <tr><td><code>frontend</code></td><td>React dashboard, playback UI, COA approval panel</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="s4">
+      <h2>4. The Simulation Kernel</h2>
+      <p>The kernel is the single source of simulation truth.</p>
+      <pre><code>// Each tick:
+resetTickBudgetUsage(world.runtime_budgets);
+MicroWorldAdjudicator::adjudicate(world, ledger, causal_graph);
+++world.tick;</code></pre>
+      <p>
+        <strong>Initialization</strong> loads scenario YAML: entities (commander, UAS, relay, cyber actors, target),
+        mission constraints, scripted events, relationship edges, and planted causal truth.
+      </p>
+      <p>
+        <strong>Determinism</strong> is enforced via seeded RNG (<code>std::mt19937_64</code>), snapshot/restore for
+        branch exploration, and a replay hash over the event ledger.
+      </p>
+      <p>
+        <strong>Snapshots</strong> capture <code>(WorldState, EventLedger, TemporalCausalGraph)</code> and enable
+        counterfactual branches without contaminating the main timeline until an intervention is committed.
+      </p>
+    </section>
+
+    <section id="s5">
+      <h2>5. Per-Tick Adjudication Flow</h2>
+      <p>Each simulation tick follows a fixed adjudication pipeline:</p>
+      <pre><code>1. Reset per-tick execution budgets
+2. Pre-cyber phase     → RedCyberAgent (attack/degrade)
+3. Cyber adjudication  → apply degradation to world components
+4. Post-cyber phase    → Sensor, Comms, UAS, Logistics,
+                          CausalMonitor, Credibility, Commander
+5. Advance tick counter</code></pre>
+      <p>
+        Agents do <strong>not</strong> freely mutate the world every tick. They <strong>observe</strong>,
+        <strong>monitor</strong>, <strong>detect anomalies</strong>, <strong>recommend COAs</strong>, and
+        <strong>act once</strong> when causal evidence and authority permit. This “always-on but restrained” model
+        (Phase D) replaces one-shot agent flags with persistent belief state.
+      </p>
+      <p>
+        The current prototype implements a <strong>heterogeneous agent framework</strong> with commander, sensor, comms,
+        UAS, logistics, causal-monitor, and credibility roles. Not all roles are equally autonomous: sensor, comms, UAS,
+        and logistics agents primarily operate as <strong>monitors and structured event emitters</strong>; the causal
+        monitor and credibility agents scan validity envelopes; only the <strong>BlueCommanderAgent</strong> performs
+        bounded COA orchestration under authority policy. Red cyber behavior remains scripted, not adaptive.
+      </p>
+    </section>
+
+    <section id="s6">
+      <h2>6. Event Ledger and Causal Evidence</h2>
+      <p>Every meaningful observation, policy proposal, intervention, and budget violation becomes a <code>SimEvent</code>:</p>
+      <ul>
+        <li>Monotonic <code>event_id</code></li>
+        <li>Simulation <code>tick</code></li>
+        <li>Actor entity</li>
+        <li>Typed <code>EventType</code> and string <code>label</code> (e.g. <code>coa_recommendation</code>, <code>sensor_confidence_loss</code>)</li>
+        <li>State <code>deltas</code> (before/after field changes)</li>
+        <li><code>causal_parent_events</code> linking evidence chains</li>
+        <li>Provenance, confidence, uncertainty</li>
+      </ul>
+      <p>The ledger is the <strong>audit trail</strong>. The dashboard timeline, causal claims, and replay verification all derive from it.</p>
+      <p>
+        The <strong>temporal causal graph</strong> accumulates edges between events and state variables over time. The
+        <strong>relationship graph</strong> (from YAML) encodes structural dependencies: <code>commands</code>,
+        <code>senses</code>, <code>degrades</code>, <code>communicates_with</code>, <code>supplies</code>, etc.
+      </p>
+    </section>
+
+    <section id="s7">
+      <h2>7. Dual-Loop Runtime</h2>
+      <p>DARLA separates <strong>operational decision speed</strong> from <strong>scientific validation depth</strong>.</p>
+      <h3>7.1 Fast loop (online, per tick)</h3>
+      <ol>
+        <li>Agents update beliefs (sensor trust, comms health, mission risk, COA entropy)</li>
+        <li>Commander reviews COAs on a <strong>60-tick cadence</strong> or on <strong>anomaly edge</strong></li>
+        <li>For each candidate action, <code>CausalActionEstimator</code> runs bounded counterfactual branches</li>
+        <li>Commander ranks candidates by score (mission gain, confidence, cost, risk, uncertainty)</li>
+        <li><code>AuthorityGate</code> evaluates whether execution is permitted</li>
+        <li>Approved action is scheduled at a future tick via <code>InterventionEngine</code></li>
+      </ol>
+      <h3>7.2 Slow loop (async, post-decision)</h3>
+      <p>After the commander’s primary decision, <code>AsyncValidationRuntime</code> queues validation jobs that:</p>
+      <ul>
+        <li>Replay and falsify the online causal assumption</li>
+        <li>Run minimum intervention search</li>
+        <li>Score recovery against <strong>planted causal truth</strong> edges from scenario YAML</li>
+        <li>Produce an <code>AsyncValidationSummary</code> (survived/overturned, best interventions, recovery score)</li>
+      </ul>
+      <p>
+        The slow loop is budget-limited (<code>async_replay_jobs</code>, <code>async_branch_executions</code> per tick)
+        so real-time stepping remains bounded.
+      </p>
+      <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    participant C as BlueCommanderAgent
+    participant E as CausalActionEstimator
+    participant A as AuthorityGate
+    participant K as Kernel/Adjudicator
+    participant V as AsyncValidationRuntime
+
+    C->>E: estimateActionEffect(action, snapshot, horizon)
+    E-->>C: supported?, gain, confidence, rationale
+    C->>C: rank COAs, emit coa_recommendation event
+    C->>A: evaluateAuthority(selected COA)
+    A-->>C: approved / hold / pending approval
+    C->>K: schedule intervention at T+N
+    Note over V: After primary decision
+    V->>V: falsification branches + planted truth scoring
+        </pre>
+      </div>
+    </section>
+
+    <section id="s8">
+      <h2>8. Structural Causal Layer (Phase A)</h2>
+      <p>Prior to Phase A, commander logic leaned on hard-coded scores. The current design uses:</p>
+      <h3>8.1 RelationshipGraph</h3>
+      <p>Typed edges from scenario YAML connect agents and entities. Example:</p>
+      <pre><code>relationships:
+  - type: commands
+    source: blue_commander
+    target: blue_uas_1
+  - type: degrades
+    source: red_cyber_actor
+    target: blue_uas_1
+    component: sensor</code></pre>
+      <p>
+        The commander discovers intervention targets through graph traversal (<code>GraphEntityResolver</code>),
+        reducing hard-coded entity names.
+      </p>
+      <h3>8.2 CausalActionEstimator</h3>
+      <p>For each candidate action, the estimator:</p>
+      <ol>
+        <li>Takes a branch snapshot at the current tick</li>
+        <li>Projects baseline mission metrics over a <strong>decision horizon</strong></li>
+        <li>Runs <code>InterventionEngine</code> counterfactual branches</li>
+        <li>Returns <code>ActionEffectEstimate</code>: expected mission gain, causal confidence, cost, risk, support flag, structured rationale</li>
+      </ol>
+      <p>Unsupported actions are refused. The commander holds COA when evidence is weak.</p>
+      <h3>8.3 InterventionEngine</h3>
+      <p>
+        Interventions are <strong>time-faithful</strong>: scheduled at <code>--at</code> tick and applied only when
+        simulation time reaches that tick. Early intervention can recover the branch; late intervention cannot undo
+        prior detection or mission failure.
+      </p>
+    </section>
+
+    <section id="s9">
+      <h2>9. Continuous COA Orchestration (Phase E)</h2>
+      <p>Phase E elevates the commander from a one-shot decision to <strong>continuous course-of-action orchestration</strong>.</p>
+      <h3>9.1 COA model</h3>
+      <p>Each <code>CourseOfAction</code> carries:</p>
+      <ul>
+        <li>Action type, target, proposed tick, scheduled execution tick</li>
+        <li>Expected mission gain, causal confidence, cost, risk, composite score</li>
+        <li>Rationale and lifecycle status: Proposed → Recommended → Approved → Executing → Completed (or Rejected / Superseded)</li>
+      </ul>
+      <h3>9.2 Review cadence</h3>
+      <ul>
+        <li><strong>Periodic review:</strong> every 60 ticks</li>
+        <li><strong>Anomaly-triggered review:</strong> when sensor/comms anomaly edges fire (without re-firing every tick while anomaly persists)</li>
+      </ul>
+      <p>Each review emits a ranked <code>coa_recommendation</code> event with causal parent links to the triggering observations.</p>
+      <h3>9.3 Authorization modes</h3>
+      <table>
+        <thead>
+          <tr><th>Mode</th><th>Behavior</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>PolicyAuto</code></td><td>Commander executes best supported action when authority permits</td></tr>
+          <tr><td><code>ExplicitApprovals</code></td><td>Only pre-approved <code>action@tick</code> tokens execute</td></tr>
+          <tr><td><code>HumanHold</code></td><td>Recommendations only; no autonomous execution</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The dashboard <strong>COA panel</strong> exposes mode selection and approve/reject controls. Re-running with
+        <code>--approve isolate_compromised_sensor_feed@760</code> drives explicit approval flows.
+      </p>
+      <h3>9.4 COA entropy</h3>
+      <p>
+        The commander belief state tracks <strong>COA entropy</strong>—a measure of dispersion across ranked
+        recommendations—surfaced in emergence detection and live frames for operational uncertainty signaling.
+      </p>
+    </section>
+
+    <section id="s10">
+      <h2>10. Scientific Rigor Layer (Phase C)</h2>
+      <h3>10.1 Typed causal variables</h3>
+      <p>
+        Claims reference structured variables (e.g. <code>blue_uas_1.sensor.confidence</code>, <code>detection_time</code>,
+        <code>mission_success_score</code>) rather than event labels alone.
+      </p>
+      <p>
+        Typed causal variables <strong>reduce</strong> dependence on string labels, but the current micro-world still
+        relies on scenario-provided relationship structure, planted truth edges, and label-assisted claim construction
+        in <code>CausalClaimBuilder</code>. Fully autonomous causal discovery across arbitrary LVC scenarios remains
+        future work.
+      </p>
+      <h3>10.2 Credibility contracts</h3>
+      <p>
+        YAML models under <code>models/</code> declare intended use, validity envelope, assumptions, and known failure
+        modes. <code>CredibilityEngine</code> combines evidence strength, model risk (decision influence × consequence of
+        error), falsification outcome, and contract compliance into a <code>CredibilityAssessment</code> with a
+        <code>reportable</code> boolean gate.
+      </p>
+      <p>Example contract excerpt (<code>models/sensor-confidence-v0.yaml</code>):</p>
+      <pre><code>model_name: UAS sensor confidence model
+intended_use: causal explanation over deterministic UAS maritime ISR micro-world
+valid_conditions:
+  - maritime ISR
+  - modeled RF/cyber degradation
+invalid_conditions:
+  - dense urban terrain
+  - unmodeled space ISR
+known_failure_modes:
+  - adversary spoofing not represented</code></pre>
+      <p>
+        A claim is <code>reportable</code> only when ledger evidence exists, executable falsification survives, and
+        <code>credibility_score ≥ 0.65</code>. Correlation-only claims (e.g. logistics delay) are explicitly marked
+        <code>rejected as causal under executable falsification branches</code> while still appearing in the assessment
+        output—the system documents <strong>why</strong> they were refused.
+      </p>
+      <h3>10.3 Claim status taxonomy</h3>
+      <p>The target scientific vocabulary and current runtime mapping:</p>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Meaning</th><th>Runtime signal today</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Directly adjudicated</td><td>Counterfactual branch executed in kernel</td><td><code>FalsificationResult.branch_outcomes</code></td></tr>
+          <tr><td>Supported but assumption-sensitive</td><td>Survived falsification within declared envelope</td><td><code>falsification.survived == true</code></td></tr>
+          <tr><td>Reportable</td><td>Passes evidence + falsification + score threshold</td><td><code>CredibilityAssessment.reportable</code></td></tr>
+          <tr><td>Correlated only / confounded</td><td>Co-occurs with failure but branch tests reject causality</td><td><code>isRejectedCorrelation</code> → overturned logistics claim</td></tr>
+          <tr><td>Falsified</td><td>Executable branch overturns claimed mechanism</td><td><code>falsification.overturned</code></td></tr>
+          <tr><td>Out of validity envelope</td><td>Scenario/contract conditions not met</td><td><code>validity</code> string; credibility agent warnings</td></tr>
+          <tr><td>Insufficient evidence</td><td>Missing ledger parents or weak support</td><td><code>supported == false</code>; commander holds COA</td></tr>
+          <tr><td>Weakly identifiable / identifiable</td><td>Partial vs full pathway recovery</td><td>Planted-truth <code>recovery_score</code> tiers</td></tr>
+        </tbody>
+      </table>
+      <h3>10.4 Planted causal truth</h3>
+      <p>
+        Scenario YAML declares ground-truth causal edges. After a run, <code>PlantedTruthScorer</code> compares recovered
+        claims to planted edges. Current metrics (all computed in <code>PlantedTruthScore</code>):
+      </p>
+      <ul>
+        <li><strong>Edge recall / recovery score:</strong> <code>matched_edges / planted_edges</code> (unit test threshold ≥ 0.66 for 3-edge scenario)</li>
+        <li><strong>Edge precision proxy:</strong> <code>extra_edges</code> lists recovered-but-unplanted claims</li>
+        <li><strong>Pathway coverage:</strong> <code>matched_edges</code> and <code>missing_edges</code> per planted edge</li>
+        <li><strong>False-cause rejection:</strong> logistics confounder overturned via falsification branches (not counted as planted match)</li>
+        <li><strong>Minimum intervention recovery:</strong> async slow loop reports lowest-cost and best-effect interventions alongside recovery score</li>
+      </ul>
+      <pre><code>planted_causal_truth:
+  edges:
+    - red_cyber_actor.degrade_sensor_feed -> blue_uas_1.sensor_confidence_loss
+    - blue_uas_1.sensor_confidence_loss -> delayed_target_detection</code></pre>
+      <h3>10.5 Emergence detection</h3>
+      <p>
+        <code>EmergenceDetector</code> identifies metric-based patterns: tempo collapse, sensor trust collapse, comms
+        cascade, COA entropy spikes—without requiring pre-scripted labels for every failure mode.
+      </p>
+      <h3>10.6 Minimum intervention search</h3>
+      <p>
+        <code>sim-search</code> brute-forces singleton and pair interventions, reporting lowest-cost effective and best
+        mission-effect combinations. In the default micro-world, sensor isolation is typically the lowest-cost effective
+        singleton; paired actions can improve detection time further.
+      </p>
+    </section>
+
+    <section id="s11">
+      <h2>11. Execution Budgets and Live Runtime (Phase F)</h2>
+      <p>Real-time operation requires <strong>bounded work per tick</strong>. <code>ExecutionBudget</code> enforces:</p>
+      <table>
+        <thead>
+          <tr><th>Budget</th><th>Default limit</th><th>Consumer</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Agent decisions</td><td>16/tick</td><td>Agent orchestrator</td></tr>
+          <tr><td>Causal queries</td><td>12/tick</td><td>Commander estimator calls</td></tr>
+          <tr><td>Async replay jobs</td><td>2/tick</td><td>Slow loop</td></tr>
+          <tr><td>Async branch executions</td><td>24/tick</td><td>Falsification probes</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Exceeding a budget emits <code>budget_exceeded</code> events rather than silently running unbounded
+        counterfactual exploration—preserving determinism and predictable latency.
+      </p>
+      <p>Budget semantics in the runtime:</p>
+      <table>
+        <thead>
+          <tr><th>Concept</th><th>Where it lives</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Configured budget</td><td><code>ExecutionBudgetLimits</code> on <code>WorldState.runtime_budgets</code></td></tr>
+          <tr><td>Observed usage (per tick)</td><td><code>tick_usage</code> — reset each kernel step; surfaced in live SSE frames</td></tr>
+          <tr><td>Observed usage (cumulative)</td><td><code>total_usage</code> — accumulated across the run</td></tr>
+          <tr><td>Budget violation event</td><td><code>budget_exceeded</code> ledger event with consumer label</td></tr>
+          <tr><td>Latency impact</td><td>Commander returns <code>supported=false</code> with rationale “causal query budget exceeded”; async validation aborts with budget summary</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>Acceptance test:</strong> unit tests force <code>causal_queries_per_tick = 1</code>, run commander
+        estimation, and require a <code>budget_exceeded</code> event while deterministic replay hash remains stable.
+        Budget compliance is measured behavior, not configuration text alone.
+      </p>
+      <h3>11.1 sim-live SSE stream</h3>
+      <p><code>sim-live</code> steps the kernel tick-by-tick and emits Server-Sent Events:</p>
+      <table>
+        <thead>
+          <tr><th>Event</th><th>Payload</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>meta</code></td><td>Scenario id, seed, authorization mode, max ticks, mission cutoff</td></tr>
+          <tr><td><code>tick</code></td><td>Frame: metrics, entities, agent beliefs, budgets, tick events</td></tr>
+          <tr><td><code>done</code></td><td>Final tick and mission metrics</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The Node server proxies this at <code>/api/live</code>. The dashboard <strong>“Live tick stream”</strong> mode
+        (default on) connects via <code>EventSource</code>, updating the map and metrics as ticks arrive.
+      </p>
+      <h3>11.2 Dual data path in the dashboard</h3>
+      <p>Live mode runs <strong>two parallel pipelines</strong>:</p>
+      <ol>
+        <li><strong>Live path:</strong> <code>sim-live</code> → SSE → incremental playback frames (real-time map/beliefs/tick counter)</li>
+        <li><strong>Analysis path:</strong> <code>sim-export</code> → full dashboard JSON (claims, planted truth, async validation, COA log, intervention search)</li>
+      </ol>
+      <p>
+        Export is batch-oriented and slower (~10–20s). The UI waits for at least one live frame before rendering
+        playback-dependent panels, avoiding crashes when export completes before the first SSE tick.
+      </p>
+      <p>Batch mode (live stream unchecked) uses <code>sim-stream</code> for full post-run playback JSON instead.</p>
+    </section>
+
+    <section id="s12">
+      <h2>12. Agent Belief State (Phase D)</h2>
+      <p>
+        <code>AgentBeliefRegistry</code> maintains persistent beliefs across ticks. Eight maritime agents register in
+        the orchestrator; belief updates below reflect <strong>observed state</strong>, not independent policy agents:
+      </p>
+      <table>
+        <thead>
+          <tr><th>Belief</th><th>Source agent</th><th>Autonomy</th><th>Used for</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Sensor trust / degraded</td><td>SensorAgent</td><td>Monitor / emitter</td><td>Anomaly detection, commander inputs</td></tr>
+          <tr><td>Comms health</td><td>CommsAgent</td><td>Monitor / emitter</td><td>Comms-only vs sensor failure discrimination</td></tr>
+          <tr><td>Mission risk / tempo ratio</td><td>BlueCommanderAgent</td><td>Policy agent</td><td>COA urgency</td></tr>
+          <tr><td>COA entropy</td><td>BlueCommanderAgent</td><td>Policy agent</td><td>Emergence, decision uncertainty</td></tr>
+          <tr><td>Causal warning</td><td>CausalMonitorAgent</td><td>Monitor</td><td>Path strength scans every 60 ticks</td></tr>
+          <tr><td>Credibility validity</td><td>CredibilityAgent</td><td>Monitor</td><td>Envelope violations</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Beliefs flow into live SSE frames and playback scrubbing, so the map and panels reflect
+        <strong>what agents believe</strong>, not only ground truth component state.
+      </p>
+    </section>
+
+    <section id="s13">
+      <h2>13. Dashboard Behavior</h2>
+      <p>
+        The dashboard is an <strong>evidence consumer</strong>, not the simulation kernel. It helps operators and
+        reviewers inspect what the C++ runtime already decided and recorded. Kernel behavior is identical whether or not
+        the UI is open.
+      </p>
+      <p>When you click <strong>Run Simulation</strong>:</p>
+      <ol>
+        <li>API server spawns C++ binaries from <code>build-make/</code> or <code>build/</code></li>
+        <li><strong>Live mode:</strong> <code>EventSource</code> opens; <code>meta</code> sets playback metadata; each <code>tick</code> appends a frame</li>
+        <li><strong>In parallel:</strong> <code>sim-export</code> produces the full analysis payload</li>
+        <li>UI shows streaming banner until frames arrive; then renders:
+          <ul>
+            <li>Live tick metrics and MapLibre operational map</li>
+            <li>Playback bar (scrub/play/pause, decision markers at COA events)</li>
+            <li>COA panel with authority mode and approve/reject</li>
+            <li>Dual-loop panel (fast decision vs slow validation summary)</li>
+            <li>Causal claims, planted truth, intervention search, timeline, COA lifecycle log</li>
+          </ul>
+        </li>
+      </ol>
+      <p>Deterministic <strong>replay hash</strong> is displayed as a ledger integrity fingerprint.</p>
+      <p><strong>Run locally:</strong></p>
+      <pre><code>cmake --build build-make
+./restart-dashboard.sh
+# UI: http://localhost:5176
+# API: http://localhost:8787</code></pre>
+    </section>
+
+    <section id="s14">
+      <h2>14. Determinism, Acceptance Tests, and Verification</h2>
+      <p>
+        Determinism is a first-class requirement. Rigorous claims in this paper are backed by executable acceptance tests
+        in <code>tests/unit/main.cpp</code> (<code>darla_unit_tests</code>).
+      </p>
+      <h3>14.1 Executable acceptance criteria</h3>
+      <table>
+        <thead>
+          <tr><th>Criterion</th><th>Pass condition (micro-world, seed 42 unless noted)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Deterministic replay</td><td>Same seed produces identical <code>EventLedger.stableHash()</code></td></tr>
+          <tr><td>Temporal integrity</td><td>Non-monotonic ticks rejected by <code>validateIntegrity()</code></td></tr>
+          <tr><td>Late intervention immutability</td><td>Intervention after detection cannot change prior <code>detection_time</code></td></tr>
+          <tr><td>Logistics confounder rejection</td><td><code>remove_logistics_delay</code> does not recover mission; claim overturned</td></tr>
+          <tr><td>Comms-only discrimination</td><td><code>restore_comms_relay</code> outranks sensor isolation when sensor healthy (<code>comms-only.yaml</code>)</td></tr>
+          <tr><td>Sensor-degraded discrimination</td><td>Isolation supported; comms restore alone not supported when sensor degraded</td></tr>
+          <tr><td>Online agent recovery</td><td>PolicyAuto commander → detection T+1440, mission success</td></tr>
+          <tr><td>Authority modes</td><td>Human hold blocks execution; explicit approval token required in explicit mode</td></tr>
+          <tr><td>Reportable causal claim</td><td>Sensor pathway claim reportable with survived falsification (≥3 branch outcomes)</td></tr>
+          <tr><td>Planted truth recovery</td><td><code>recovery_score ≥ 0.66</code> on 3-edge planted graph</td></tr>
+          <tr><td>Budget enforcement</td><td>Low causal-query limit emits <code>budget_exceeded</code>; replay hash still stable</td></tr>
+          <tr><td>Minimum intervention search</td><td>Lowest-cost singleton = sensor isolation; best pair improves detection to T+1320</td></tr>
+        </tbody>
+      </table>
+      <h3>14.2 Verification CLI</h3>
+      <pre><code>./build-make/sim-verify scenarios/uas-maritime-cyber/scenario.yaml --seed 42
+ctest --test-dir build-make --output-on-failure</code></pre>
+      <p><code>sim-verify</code> additionally runs credibility contract evaluation and executable falsification branches in the MVP claim set.</p>
+      <p><code>sim-replay</code> verifies exported ledger hashes independently.</p>
+      <p>
+        With seed <strong>42</strong> and <code>PolicyAuto</code>, the online agent path preserves the canonical
+        <strong>T+1440</strong> detection outcome—a regression anchor across phases E and F.
+      </p>
+    </section>
+
+    <section id="s15">
+      <h2>15. Reference Scenario Structure</h2>
+      <p>The UAS maritime cyber scenario defines:</p>
+      <ul>
+        <li><strong>Entities:</strong> commander, UAS, comms relay, cyber defense, red cyber actor, maritime target, logistics node</li>
+        <li><strong>Components:</strong> kinematic (map coordinates), sensor, comms, cyber</li>
+        <li><strong>Mission:</strong> detect target before tick 1800, minimum track confidence, engagement authority</li>
+        <li><strong>Scripted events:</strong> cyber degradation timing, logistics delay confounder</li>
+        <li><strong>Relationships:</strong> command, sensing, degradation, communication, supply edges</li>
+        <li><strong>Planted truth:</strong> causal edges for scoring</li>
+      </ul>
+      <p>
+        A <strong>comms-only</strong> variant (<code>comms-only.yaml</code>) isolates comms degradation with a healthy
+        sensor—restoring comms alone recovers mission timing; sensor isolation is the wrong response. This validates
+        that the estimator and commander discriminate failure modes.
+      </p>
+    </section>
+
+    <section id="s16">
+      <h2>16. CLI Tooling Summary</h2>
+      <table>
+        <thead>
+          <tr><th>Binary</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>sim-runner</code></td><td>Baseline headless run</td></tr>
+          <tr><td><code>sim-agent-demo</code></td><td>Fast vs slow loop comparison</td></tr>
+          <tr><td><code>sim-counterfactual</code></td><td>Single intervention branch at <code>--at</code></td></tr>
+          <tr><td><code>sim-search</code></td><td>Minimum intervention search</td></tr>
+          <tr><td><code>sim-verify</code></td><td>Full integrity + credibility + falsification</td></tr>
+          <tr><td><code>sim-export</code></td><td>Dashboard JSON</td></tr>
+          <tr><td><code>sim-stream</code></td><td>Full playback JSON (batch)</td></tr>
+          <tr><td><code>sim-live</code></td><td>SSE tick stream (real-time)</td></tr>
+          <tr><td><code>sim-replay</code></td><td>Ledger hash verification</td></tr>
+        </tbody>
+      </table>
+      <p>Common flags: <code>--seed N</code>, <code>--mode policy_auto|explicit|human_hold</code>, <code>--approve action@tick</code>.</p>
+    </section>
+
+    <section id="s17">
+      <h2>17. Known Boundaries and Non-Goals</h2>
+      <p>The prototype is explicit about what it <strong>does not</strong> yet claim:</p>
+      <ul>
+        <li>No adaptive adversary beyond scripted red cyber behavior</li>
+        <li>Causal discovery is partially label-assisted and scenario-seeded—not fully unsupervised across arbitrary domains</li>
+        <li>No Unreal/visual LVC, no LLM agents, no production VV&amp;A suite</li>
+        <li>Planted-truth scoring uses edge recall/recovery today; full precision/F1 pathway taxonomy is not yet a first-class API</li>
+        <li>Claim status taxonomy in Section 10.3 mixes target vocabulary with current <code>CredibilityAssessment</code> fields</li>
+        <li>Live SSE frames are compact; full COA/authority fields may differ from batch <code>sim-stream</code> richness</li>
+        <li>Dashboard is visualization only—never authoritative over the C++ ledger</li>
+      </ul>
+      <p>
+        Remaining DARPA-hard gaps: full adversarial adaptation, autonomous causal discovery at scale, and
+        enterprise-grade validation tooling.
+      </p>
+    </section>
+
+    <section id="s17b">
+      <h2>17.1 Maturity Scorecard</h2>
+      <table class="scorecard">
+        <thead>
+          <tr><th>Area</th><th>White paper strength</th><th>Risk / next step</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Causal experimentation framing</td><td><strong>Strong</strong></td><td>Low — keep executive question as anchor</td></tr>
+          <tr><td>Dual-loop architecture</td><td><strong>Strong</strong></td><td>Low — backed by async validation tests</td></tr>
+          <tr><td>Event ledger / evidence layer</td><td><strong>Strong</strong></td><td>Low — hash + integrity tests</td></tr>
+          <tr><td>Real-time execution budgets</td><td><strong>Good</strong></td><td>Measured — <code>budget_exceeded</code> unit test; expand latency SLOs</td></tr>
+          <tr><td>Heterogeneous agents</td><td><strong>Promising</strong></td><td>Clarify monitor vs policy roles (Section 5, 12)</td></tr>
+          <tr><td>Planted causal truth</td><td><strong>Strong idea</strong></td><td>Add precision/F1 API when discovery scales</td></tr>
+          <tr><td>Credibility contracts</td><td><strong>Good</strong></td><td>Example YAML + reportable gate documented (Section 10.2)</td></tr>
+          <tr><td>Dashboard</td><td><strong>Good</strong></td><td>Keep subordinate to kernel; dual export/live path explicit</td></tr>
+          <tr><td>Known boundaries</td><td><strong>Strong</strong></td><td>Keep and sharpen each release</td></tr>
+          <tr><td>DARPA-hard rigor</td><td><strong>Good</strong></td><td>Acceptance table + claim taxonomy (Sections 10.3, 14.1)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="s18">
+      <h2>18. Conclusion</h2>
+      <p>DARLA implements a <strong>causal-agentic simulation stack</strong>—demonstrated today in the UAS maritime cyber micro-world—where:</p>
+      <ol>
+        <li>A deterministic kernel produces auditable event evidence</li>
+        <li>A heterogeneous agent framework combines monitors, validity scanners, and a single authority-gated commander under per-tick budgets</li>
+        <li>COA orchestration uses graph-native causal estimation and explicit authorization policy</li>
+        <li>A slow loop falsifies online decisions against counterfactual branches and planted truth</li>
+        <li>A dashboard consumes kernel outputs for operational inspection—not as a second source of truth</li>
+      </ol>
+      <p>
+        The central thesis: <strong>real-time agentic decisions are allowed, but causal truth is earned</strong> through
+        deterministic evidence, replay, falsification, planted-truth scoring, and credibility envelopes—not through
+        richer visualization or narrative explanation alone.
+      </p>
+      <p>
+        When you run the dashboard, watch ticks stream to T+1440, approve a COA, and read falsification survive or
+        overturn in the dual-loop panel, you are observing <strong>operational tempo and causal rigor in the same
+        deterministic runtime</strong>—with pass/fail acceptance criteria enforced in CI, not asserted in prose alone.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    DARLA Causal-Agentic LVC Prototype · Technical White Paper · Revised for implementation maturity and acceptance-test alignment
+  </footer>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      themeVariables: {
+        primaryColor: "#1a2332",
+        primaryTextColor: "#e6edf3",
+        primaryBorderColor: "#58a6ff",
+        lineColor: "#8b9cb3",
+        secondaryColor: "#243044",
+        tertiaryColor: "#161b22"
+      }
+    });
+  </script>
+</body>
+</html>

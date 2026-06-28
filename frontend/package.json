@@ -1,0 +1,34 @@
+{
+  "name": "darla-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.mjs\" \"vite\"",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server": "node server.mjs",
+    "check:no-legacy-mocks": "node scripts/check-no-legacy-mocks.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.11.1",
+    "elkjs": "^0.11.1",
+    "lucide-react": "^1.21.0",
+    "maplibre-gl": "^4.7.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-resizable-panels": "^4.12.0",
+    "react-router-dom": "^7.18.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/geojson": "^7946.0.16",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

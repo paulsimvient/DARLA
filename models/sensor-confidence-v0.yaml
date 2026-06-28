@@ -1,0 +1,23 @@
+model_name: UAS sensor confidence model
+intended_use: causal explanation over deterministic UAS maritime ISR micro-world
+valid_conditions:
+  - maritime ISR
+  - modeled RF/cyber degradation
+  - constructive deterministic agents
+invalid_conditions:
+  - dense urban terrain
+  - unmodeled space ISR
+verification_score: 0.86
+validation_score: 0.78
+uncertainty_score: 0.17
+calibration_error: 0.09
+assumptions:
+  - scripted cyber degradation timing
+  - single maritime target
+required_inputs:
+  - event ledger
+  - causal parent event IDs
+  - counterfactual branch result
+known_failure_modes:
+  - adversary spoofing not represented
+  - weather not represented

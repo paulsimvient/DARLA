@@ -1,0 +1,17 @@
+model_name: commander policy model
+intended_use: COA selection and engagement authorization timing
+valid_conditions:
+  - constructive commander agent
+invalid_conditions:
+  - human-in-the-loop command
+verification_score: 0.77
+validation_score: 0.66
+uncertainty_score: 0.22
+calibration_error: 0.13
+assumptions:
+  - bounded causal estimator
+required_inputs:
+  - detection_time
+  - mission_success_score
+known_failure_modes:
+  - doctrine variation not represented

@@ -1,0 +1,18 @@
+{
+  "basemap": "MapLibre GL JS",
+  "layers": [
+    {
+      "id": "esri-imagery",
+      "name": "Esri World Imagery",
+      "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+      "license": "Esri Terms of Use"
+    },
+    {
+      "id": "osm-labels",
+      "name": "OpenStreetMap",
+      "url": "https://www.openstreetmap.org/copyright",
+      "license": "ODbL 1.0"
+    }
+  ],
+  "theater_bbox": [121.2, 24.5, 122.5, 25.5]
+}

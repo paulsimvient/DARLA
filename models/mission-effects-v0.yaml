@@ -1,0 +1,20 @@
+model_name: mission effects model
+intended_use: mission outcome adjudication for maritime ISR micro-world
+valid_conditions:
+  - maritime ISR
+  - deterministic constructive simulation
+invalid_conditions:
+  - live LVC federation truth arbitration
+verification_score: 0.79
+validation_score: 0.68
+uncertainty_score: 0.28
+calibration_error: 0.14
+assumptions:
+  - rule-based commander policy
+  - engagement authority simplified
+required_inputs:
+  - detection_time
+  - mission_success_score
+known_failure_modes:
+  - commander doctrine simplified
+  - engagement authority simplified

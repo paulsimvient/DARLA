@@ -1,0 +1,175 @@
+scenario_id: uas-maritime-cyber-v001
+seed: 42
+tick_seconds: 1.0
+max_ticks: 5000
+
+timeline:
+  pause_at_coa_reviews: true
+  tick_pacing_ms: 0
+
+mission:
+  objective: detect_and_track_red_maritime_target
+  success_conditions:
+    - target_detected_before_tick: 1800
+    - track_confidence_min: 0.70
+    - engagement_authority_available: true
+
+entities:
+  - id: blue_commander
+    kind: Commander
+    side: Blue
+    components:
+      kinematic:
+        lat: 24.90
+        lon: 121.50
+        alt: 0
+
+  - id: blue_uas_1
+    kind: Platform
+    side: Blue
+    components:
+      - type: kinematic
+        lat: 25.0
+        lon: 122.0
+        alt: 5000
+      - type: sensor
+        confidence: 0.88
+        range_km: 120
+        latency_sec: 2.0
+      - type: python_script
+        script: scenarios/uas-maritime-cyber/scripts/uas_behavior.py
+        class: UasBehavior
+        enabled: true
+        params:
+          search_aggressiveness: 0.7
+          min_sensor_confidence: 0.55
+
+  - id: blue_relay_1
+    kind: NetworkNode
+    side: Blue
+    components:
+      kinematic:
+        lat: 25.05
+        lon: 122.05
+        alt: 0
+      comms:
+        bandwidth_mbps: 10
+        latency_sec: 1.0
+        packet_loss: 0.01
+
+  - id: blue_cyber_defense
+    kind: CyberService
+    side: Blue
+    components:
+      kinematic:
+        lat: 24.95
+        lon: 121.55
+        alt: 0
+      cyber:
+        integrity: 0.90
+
+  - id: red_cyber_actor
+    kind: CyberService
+    side: Red
+    components:
+      kinematic:
+        lat: 25.50
+        lon: 123.00
+        alt: 0
+      cyber:
+        integrity: 0.95
+
+  - id: red_maritime_target
+    kind: Platform
+    side: Red
+    components:
+      kinematic:
+        lat: 25.7
+        lon: 122.8
+        alt: 0
+
+  - id: logistics_support_node
+    kind: LogisticsNode
+    side: Blue
+    components:
+      kinematic:
+        lat: 24.85
+        lon: 121.45
+        alt: 0
+
+scripted_events:
+  - tick: 720
+    actor: red_cyber_actor
+    action: degrade_sensor_feed
+    target: blue_uas_1
+    effect:
+      sensor_confidence_delta: -0.45
+      network_integrity_delta: -0.30
+
+planted_causal_truth:
+  edges:
+    - red_cyber_actor.degrade_sensor_feed -> blue_uas_1.sensor_confidence_loss
+    - blue_uas_1.sensor_confidence_loss -> delayed_target_detection
+    - delayed_target_detection -> mission_failure_probability
+
+# Structural causal model parameters (theta). These are the coefficients/means of the
+# structural equations V_i = f_i(pa_i, U_i; theta). The deterministic (noise-free) means
+# reproduce the baseline ladder exactly; detection/mission sigmas are the exogenous-noise
+# standard deviations used by the Monte-Carlo effect estimator and calibration harness.
+scm:
+  sensor_beta_cyber: -0.45
+  sensor_sigma: 0.05
+  detection_nominal: 1400
+  detection_comms_blocking: 1900
+  detection_degraded: 1980
+  detection_degraded_autonomous: 1700
+  detection_isolated: 1440
+  detection_isolated_autonomous: 1320
+  detection_sigma: 60
+  mission_fail_score: 0.42
+  mission_success_score: 0.61
+  mission_success_autonomous_isolated: 0.68
+  mission_preauth_floor: 0.67
+  mission_sigma: 0.05
+  latent_confounder_strength: 0.18
+
+relationships:
+  - type: commands
+    source: blue_commander
+    target: blue_uas_1
+  - type: communicates_with
+    source: blue_commander
+    target: blue_relay_1
+    component: comms
+  - type: depends_on
+    source: blue_uas_1
+    target: blue_relay_1
+    component: comms
+  - type: senses
+    source: blue_uas_1
+    target: red_maritime_target
+    component: sensor
+  - type: degrades
+    source: red_cyber_actor
+    target: blue_uas_1
+    component: sensor
+  - type: supports
+    source: blue_relay_1
+    target: blue_commander
+    component: comms
+  - type: supports
+    source: blue_relay_1
+    target: blue_uas_1
+    component: comms
+  - type: supplies
+    source: logistics_support_node
+    target: blue_commander
+
+fmus:
+  - id: uas_sensor_fmu
+    path: models/fmu/uas_sensor.fmu
+    step_size: 1.0
+    inputs:
+      - cyber_degradation: red_cyber_actor.cyber.integrity
+    outputs:
+      - sensor_confidence: blue_uas_1.sensor.confidence
