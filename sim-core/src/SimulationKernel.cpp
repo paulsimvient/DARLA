@@ -1,6 +1,7 @@
 #include "SimulationKernel.h"
 
 #include "ActionType.h"
+#include "SimRealism.h"
 #include "ExecutionBudget.h"
 #include "sim-adjudication/MicroWorldAdjudicator.h"
 
@@ -46,6 +47,7 @@ void SimulationKernel::loadScenario(const Scenario& scenario) {
     world_.fmu_configs = scenario.fmus;
     world_.planted_truth = scenario.planted_causal_truth;
     world_.scm = scenario.scm;
+    world_.realism = makeDefaultRealismConfig(scenario);
     world_.scm_noise_seed = scenario.config.seed;
     for (const auto& entity : scenario.entities) {
         world_.ids_by_name[entity.name] = entity.id;
@@ -66,6 +68,7 @@ void SimulationKernel::loadScenario(const Scenario& scenario) {
                 0});
         }
     }
+    refreshRealismRuntime(world_);
     if (script_runtime_) {
         script_runtime_->loadScenarioScripts(scenario, *this);
     }
@@ -78,6 +81,7 @@ void SimulationKernel::step() {
     MicroWorldAdjudicator adjudicator;
     adjudicator.adjudicate(world_, ledger_, causal_graph_);
     notifyScriptsForNewEvents(previous_event_count);
+    refreshRealismRuntime(world_);
     if (script_runtime_) {
         script_runtime_->onTick(*this, config_.tick_seconds);
     }

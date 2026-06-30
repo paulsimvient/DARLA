@@ -33,7 +33,6 @@ import type {
   SimEvent,
 } from "../types";
 import { coaApprovalKey, rankCoas } from "../utils/coaHelpers";
-import { firstKeyEventAtTick } from "../utils/keyEvents";
 import { scenarioTimelineDefaults } from "../utils/scenarioProfile";
 
 export const SCENARIOS = [
@@ -63,6 +62,13 @@ export type SimulationStatus = "idle" | "loading" | "live" | "ready" | "error";
 export type ReplayView = "baseline" | "branch" | "compare";
 export type TimelineMode = "follow" | "inspect";
 
+export type TimelinePauseReason =
+  | { kind: "user"; tick: number }
+  | { kind: "review_hold"; tick: number; coa_ids: number[] }
+  | { kind: "breakpoint"; tick: number; label: string; event_id: number }
+  | { kind: "ended"; tick: number }
+  | null;
+
 export type ReviewHold = {
   tick: number;
   coa_ids: number[];
@@ -84,6 +90,18 @@ type SimulationContextValue = {
   currentTick: number;
   liveTick: number;
   timelineMode: TimelineMode;
+  pauseReason: TimelinePauseReason;
+  timelineDiagnostics: {
+    playState: string;
+    pauseReason: TimelinePauseReason;
+    authorizationMode: string;
+    currentTick: number;
+    liveTick: number;
+    bufferedFrames: number;
+    lastFrameReceivedAt: number | null;
+    lastEventLabel: string | null;
+    droppedSseBlocks: number;
+  };
   reviewHold: ReviewHold | null;
   isPlaying: boolean;
   playbackSpeed: number;
@@ -189,7 +207,7 @@ function timelineHorizonTick(
 export function SimulationProvider({ children }: { children: ReactNode }) {
   const [scenario, setScenario] = useState<string>(SCENARIOS[0].id);
   const [seed, setSeed] = useState(42);
-  const [authorizationMode, setAuthorizationMode] = useState("human_hold");
+  const [authorizationMode, setAuthorizationMode] = useState("policy_auto");
   const [runIdentity, setRunIdentity] = useState<RunIdentity | null>(null);
   const [branchResults, setBranchResults] = useState<BranchResult[]>([]);
   const [commandAcks, setCommandAcks] = useState<SimCommandAck[]>([]);
@@ -204,6 +222,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [currentTick, setCurrentTickState] = useState(0);
   const [liveTick, setLiveTick] = useState(0);
   const [timelineMode, setTimelineModeState] = useState<TimelineMode>("follow");
+  const [pauseReason, setPauseReason] = useState<TimelinePauseReason>(null);
   const [reviewHold, setReviewHold] = useState<ReviewHold | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(10);
@@ -211,6 +230,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [replayView, setReplayView] = useState<ReplayView>("baseline");
   const [compareBranch, setCompareBranch] = useState<BranchResult | null>(null);
   const [activeBranch, setActiveBranch] = useState<BranchResult | null>(null);
+  const [lastFrameReceivedAt, setLastFrameReceivedAt] = useState<number | null>(null);
+  const [droppedSseBlocks, setDroppedSseBlocks] = useState(0);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const branchStreamRef = useRef<EventSource | null>(null);
@@ -231,6 +252,11 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const playheadAnchorRef = useRef(0);
   const pendingScrubRef = useRef(false);
   const prevIsPlayingRef = useRef(false);
+  const playbackRef = useRef<PlaybackData | null>(null);
+  const dashboardRef = useRef<DashboardData | null>(null);
+  const scenarioRef = useRef(scenario);
+  const reviewHoldRef = useRef<ReviewHold | null>(null);
+  const authorizationModeRef = useRef(authorizationMode);
 
   useEffect(() => {
     liveTickRef.current = liveTick;
@@ -249,6 +275,26 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   }, [playbackSpeed]);
 
   useEffect(() => {
+    playbackRef.current = playback;
+  }, [playback]);
+
+  useEffect(() => {
+    dashboardRef.current = dashboard;
+  }, [dashboard]);
+
+  useEffect(() => {
+    scenarioRef.current = scenario;
+  }, [scenario]);
+
+  useEffect(() => {
+    reviewHoldRef.current = reviewHold;
+  }, [reviewHold]);
+
+  useEffect(() => {
+    authorizationModeRef.current = authorizationMode;
+  }, [authorizationMode]);
+
+  useEffect(() => {
     isPlayingRef.current = isPlaying;
     if (isPlaying && !prevIsPlayingRef.current) {
       playheadAnchorRef.current = currentTickRef.current;
@@ -262,40 +308,123 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setTimelineModeState(mode);
   }, []);
 
+  const playbackTargetTick = useCallback(() => {
+    return timelineHorizonTick(
+      scenarioRef.current,
+      dashboardRef.current,
+      playbackRef.current,
+      liveTickRef.current,
+    );
+  }, []);
+
+  const setTimelinePlaying = useCallback(
+    (playing: boolean) => {
+      if (!playing) {
+        isPlayingRef.current = false;
+        prevIsPlayingRef.current = false;
+        setIsPlaying(false);
+        setPauseReason((prev) =>
+          prev?.kind === "review_hold" || prev?.kind === "ended"
+            ? prev
+            : { kind: "user", tick: currentTickRef.current },
+        );
+        return;
+      }
+
+      const target = playbackTargetTick();
+      if (currentTickRef.current >= target && target > 0) {
+        currentTickRef.current = 0;
+        playheadAnchorRef.current = 0;
+        pendingScrubRef.current = true;
+        setCurrentTickState(0);
+      } else {
+        playheadAnchorRef.current = currentTickRef.current;
+        pendingScrubRef.current = true;
+      }
+
+      // Play controls the local replay clock only. It should not change scroll/follow/inspect mode.
+      if (authorizationModeRef.current !== "human_hold") {
+        reviewHoldRef.current = null;
+        setReviewHold(null);
+      }
+      setPauseReason(null);
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+    },
+    [playbackTargetTick, setTimelineMode],
+  );
+
   const setViewTick = useCallback(
     (tick: number) => {
       const clamped = Math.max(0, Math.floor(tick));
       playheadAnchorRef.current = clamped;
       currentTickRef.current = clamped;
       pendingScrubRef.current = true;
-      isPlayingRef.current = false;
-      setTimelineMode("inspect");
-      setIsPlaying(false);
       setCurrentTickState(clamped);
+
+      // Seeking/scrubbing is not a pause command. If playback is already
+      // running, the next UI clock tick advances from the newly selected
+      // position. If playback is paused, the seek enters inspect mode and
+      // records a normal user pause reason.
+      if (isPlayingRef.current) {
+        setPauseReason(null);
+        return;
+      }
+
+      setTimelineMode("inspect");
+      setPauseReason({ kind: "user", tick: clamped });
     },
     [setTimelineMode],
   );
 
   const followLive = useCallback(() => {
-    playheadAnchorRef.current = currentTickRef.current;
+    // Timeline V2 semantics: this is a one-shot "jump to latest buffered tick".
+    // It does not enable a special live-follow mode and it does not start/stop playback.
+    const targetTick = Math.max(currentTickRef.current, liveTickRef.current);
+    playheadAnchorRef.current = targetTick;
+    currentTickRef.current = targetTick;
     pendingScrubRef.current = true;
-    setTimelineMode("follow");
-    if (status === "live" || status === "ready") {
-      setIsPlaying(true);
+    setCurrentTickState(targetTick);
+    setPauseReason(isPlayingRef.current ? null : { kind: "user", tick: targetTick });
+
+    if (authorizationModeRef.current !== "human_hold") {
+      reviewHoldRef.current = null;
+      setReviewHold(null);
     }
-    if (reviewHold && activeRunIdRef.current) {
-      void sendRunCommand(activeRunIdRef.current, { type: "continue_review" })
-        .then(() => {
-          setReviewHold(null);
-        })
-        .catch(() => {
-          // Keep review hold visible if the sim cannot resume yet.
-        });
-    }
-  }, [reviewHold, setTimelineMode, status]);
+  }, []);
 
   const clearReviewHold = useCallback(() => {
     setReviewHold(null);
+    setPauseReason(null);
+  }, []);
+
+  const selectAuthorizationMode = useCallback((mode: string) => {
+    const normalized = mode === "explicit" ? "explicit_approvals" : mode;
+    if (!["policy_auto", "explicit_approvals", "human_hold"].includes(normalized)) {
+      return;
+    }
+
+    authorizationModeRef.current = normalized;
+    setAuthorizationMode(normalized);
+    setRunIdentity((prev) =>
+      prev
+        ? {
+            ...prev,
+            authorization_mode: normalized,
+          }
+        : prev,
+    );
+
+    if (normalized !== "human_hold") {
+      reviewHoldRef.current = null;
+      setReviewHold(null);
+      setPauseReason((prev) => (prev?.kind === "review_hold" ? null : prev));
+      return;
+    }
+
+    setPauseReason((prev) =>
+      prev?.kind === "review_hold" ? prev : { kind: "user", tick: currentTickRef.current },
+    );
   }, []);
 
   const setCurrentTick = useCallback(
@@ -345,6 +474,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     isPlayingRef.current = false;
     prevIsPlayingRef.current = false;
     setTimelineMode("follow");
+    setPauseReason(null);
     setReviewHold(null);
     setApprovedCoaIds([]);
     setBranchResults([]);
@@ -356,6 +486,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setBranchRunIdentity(null);
     framesRef.current = [];
     branchFramesRef.current = [];
+    setLastFrameReceivedAt(null);
+    setDroppedSseBlocks(0);
     activeRunIdRef.current = null;
     baselineRunIdRef.current = null;
     branchStreamRunIdRef.current = null;
@@ -395,8 +527,10 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         const source = new EventSource(runStreamUrl(run.run_id));
         eventSourceRef.current = source;
         setLiveMode(true);
+        statusRef.current = "live";
         setStatus("live");
-        setIsPlaying(true);
+        setTimelineMode("follow");
+        setTimelinePlaying(true);
 
         let meta: Partial<PlaybackData> = {
           scenario_id: scenario,
@@ -446,6 +580,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           if (runId !== runIdRef.current) return;
           const frame = JSON.parse((event as MessageEvent).data) as PlaybackFrame;
           framesRef.current = [...framesRef.current, frame];
+          setLastFrameReceivedAt(Date.now());
           setLiveTick(frame.tick);
           setPlayback({
             ...(meta as PlaybackData),
@@ -463,6 +598,22 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
                 }
               : prev,
           );
+        });
+
+        source.addEventListener("heartbeat", (event) => {
+          if (runId !== runIdRef.current) return;
+          const payload = JSON.parse((event as MessageEvent).data) as {
+            tick?: number;
+            state?: string;
+            dropped_sse_blocks?: number;
+          };
+          setLastFrameReceivedAt(Date.now());
+          if (typeof payload.tick === "number") {
+            setLiveTick((prev) => Math.max(prev, payload.tick ?? prev));
+          }
+          if (typeof payload.dropped_sse_blocks === "number") {
+            setDroppedSseBlocks(payload.dropped_sse_blocks);
+          }
         });
 
         source.addEventListener("command", (event) => {
@@ -487,7 +638,25 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         source.addEventListener("review_hold", (event) => {
           if (runId !== runIdRef.current) return;
           const payload = JSON.parse((event as MessageEvent).data) as ReviewHold;
+
+          if (authorizationModeRef.current !== "human_hold") {
+            // Autoplay means the UI clock keeps moving. Release stale/backend holds
+            // defensively, but do not pin the playhead or flip into inspect mode.
+            if (activeRunIdRef.current) {
+              void sendRunCommand(activeRunIdRef.current, { type: "continue_review" }).catch(() => {
+                // Local playback remains authoritative in Autoplay.
+              });
+            }
+            reviewHoldRef.current = null;
+            setReviewHold(null);
+            setPauseReason(null);
+            if (isPlayingRef.current) setIsPlaying(true);
+            return;
+          }
+
           setReviewHold(payload);
+          reviewHoldRef.current = payload;
+          setPauseReason({ kind: "review_hold", tick: payload.tick, coa_ids: payload.coa_ids });
           setTimelineMode("inspect");
           setIsPlaying(false);
           isPlayingRef.current = false;
@@ -501,14 +670,30 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           if (runId !== runIdRef.current) return;
           const payload = JSON.parse((event as MessageEvent).data);
           const finalTick = payload.final_tick ?? framesRef.current.at(-1)?.tick ?? 0;
-          setPlayback({
+          const completedPlayback: PlaybackData = {
             ...(meta as PlaybackData),
             frames: framesRef.current,
             final_tick: finalTick,
-          });
+          };
+          setPlayback(completedPlayback);
+          playbackRef.current = completedPlayback;
+          statusRef.current = "ready";
           setStatus("ready");
-          setIsPlaying(false);
-          setTimelineMode("inspect");
+          setLiveMode(false);
+
+          // Backend completion means the buffer is complete; it is not a UI
+          // pause command. Keep the playhead moving until the UI clock reaches
+          // the scenario horizon/final tick.
+          if (isPlayingRef.current && currentTickRef.current < playbackTargetTick()) {
+            setPauseReason(null);
+            setIsPlaying(true);
+          } else if (currentTickRef.current >= playbackTargetTick()) {
+            isPlayingRef.current = false;
+            setIsPlaying(false);
+            setTimelineMode("inspect");
+            setPauseReason({ kind: "ended", tick: playbackTargetTick() });
+          }
+
           source.close();
           eventSourceRef.current = null;
 
@@ -543,15 +728,24 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         setStatus("error");
       });
 
-  }, [authorizationMode, scenario, seed, stopSimulation]);
+  }, [authorizationMode, scenario, seed, stopSimulation, playbackTargetTick, setTimelineMode, setTimelinePlaying]);
+
+  const runSimulationRef = useRef(runSimulation);
 
   useEffect(() => {
-    runSimulation();
+    runSimulationRef.current = runSimulation;
+  }, [runSimulation]);
+
+  useEffect(() => {
+    runSimulationRef.current();
     return () => {
       runIdRef.current += 1;
       stopSimulation();
     };
-  }, [runSimulation, stopSimulation]);
+    // Intentionally restart automatically only when the selected scenario or
+    // seed changes. Demo-mode changes update local state and apply to the next
+    // explicit Run Simulation click; they should not tear down playback.
+  }, [scenario, seed, stopSimulation]);
 
   const currentFrame = useMemo(() => {
     if (!playback?.frames.length) return null;
@@ -622,43 +816,103 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     timelineEventsRef.current = timelineEvents;
   }, [timelineEvents]);
 
+  const timelineDiagnostics = useMemo(() => {
+    const lastEvent = timelineEvents.length > 0 ? timelineEvents[timelineEvents.length - 1] : null;
+    const playState = reviewHold
+      ? "paused_by_review_hold"
+      : isPlaying
+        ? "playing"
+        : pauseReason?.kind === "ended"
+          ? "ended"
+          : pauseReason?.kind === "breakpoint"
+            ? "paused_by_breakpoint"
+            : pauseReason?.kind === "user"
+              ? "paused_by_user"
+              : status === "loading"
+                ? "buffering"
+                : status;
+
+    return {
+      playState,
+      pauseReason,
+      authorizationMode,
+      currentTick,
+      liveTick,
+      bufferedFrames: framesRef.current.length,
+      lastFrameReceivedAt,
+      lastEventLabel: lastEvent?.label ?? null,
+      droppedSseBlocks,
+    };
+  }, [authorizationMode, currentTick, droppedSseBlocks, isPlaying, lastFrameReceivedAt, liveTick, pauseReason, reviewHold, status, timelineEvents]);
+
   useEffect(() => {
-    if (!isPlaying || !playback) return;
+    let animationId = 0;
+    let lastNow = performance.now();
+    let tickAccumulator = 0;
 
-    const id = window.setInterval(() => {
-      if (!isPlayingRef.current) return;
+    const advance = (now: number) => {
+      const elapsedMs = Math.max(0, now - lastNow);
+      lastNow = now;
 
-      const runStatus = statusRef.current;
-      if (runStatus !== "live" && runStatus !== "ready") return;
-      if (runStatus === "live" && timelineModeRef.current !== "follow") return;
+      if (isPlayingRef.current) {
+        const runStatus = statusRef.current;
+        const canAdvance =
+          (runStatus === "live" || runStatus === "ready") &&
+          !(reviewHoldRef.current && authorizationModeRef.current === "human_hold");
 
-      setCurrentTickState((prev) => {
-        let from = prev;
-        if (pendingScrubRef.current) {
-          from = playheadAnchorRef.current;
-          pendingScrubRef.current = false;
+        if (canAdvance) {
+          const msPerTick = Math.max(16, 1000 / Math.max(1, playbackSpeedRef.current));
+          tickAccumulator += elapsedMs;
+          const deltaTicks = Math.max(0, Math.floor(tickAccumulator / msPerTick));
+
+          if (deltaTicks > 0) {
+            tickAccumulator -= deltaTicks * msPerTick;
+            setCurrentTickState((prev) => {
+              let from = prev;
+              if (pendingScrubRef.current) {
+                from = playheadAnchorRef.current;
+                pendingScrubRef.current = false;
+              }
+
+              const target = playbackTargetTick();
+              if (target <= 0) return from;
+
+              if (from >= target) {
+                window.queueMicrotask(() => {
+                  isPlayingRef.current = false;
+                  prevIsPlayingRef.current = false;
+                  setIsPlaying(false);
+                  setPauseReason({ kind: "ended", tick: target });
+                });
+                return target;
+              }
+
+              const next = Math.min(from + deltaTicks, target);
+              currentTickRef.current = next;
+
+              if (next >= target) {
+                window.queueMicrotask(() => {
+                  isPlayingRef.current = false;
+                  prevIsPlayingRef.current = false;
+                  setIsPlaying(false);
+                  setPauseReason({ kind: "ended", tick: target });
+                });
+              }
+
+              return next;
+            });
+          }
         }
+      } else {
+        tickAccumulator = 0;
+      }
 
-        const target =
-          runStatus === "live"
-            ? liveTickRef.current
-            : Math.max(playback.final_tick, liveTickRef.current);
-        if (from >= target) return from;
+      animationId = window.requestAnimationFrame(advance);
+    };
 
-        const next = from + 1;
-        if (firstKeyEventAtTick(timelineEventsRef.current, next)) {
-          window.queueMicrotask(() => {
-            isPlayingRef.current = false;
-            setIsPlaying(false);
-            setTimelineMode("inspect");
-          });
-        }
-        return next;
-      });
-    }, Math.max(16, 1000 / Math.max(1, playbackSpeedRef.current)));
-
-    return () => window.clearInterval(id);
-  }, [isPlaying, playback, playbackSpeed, setTimelineMode]);
+    animationId = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(animationId);
+  }, [playbackTargetTick]);
 
   const approveCoa = useCallback(async (coa: CourseOfAction) => {
     const runId = activeRunIdRef.current;
@@ -903,6 +1157,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       currentTick,
       liveTick,
       timelineMode,
+      pauseReason,
+      timelineDiagnostics,
       reviewHold,
       isPlaying,
       playbackSpeed,
@@ -927,13 +1183,13 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       approvedCoaIds,
       setScenario,
       setSeed,
-      setAuthorizationMode,
+      setAuthorizationMode: selectAuthorizationMode,
       setCurrentTick,
       setViewTick,
       setTimelineMode,
       followLive,
       clearReviewHold,
-      setIsPlaying,
+      setIsPlaying: setTimelinePlaying,
       setPlaybackSpeed,
       runSimulation,
       stopSimulation,
@@ -962,6 +1218,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       currentTick,
       liveTick,
       timelineMode,
+      pauseReason,
+      timelineDiagnostics,
       reviewHold,
       isPlaying,
       playbackSpeed,
@@ -989,6 +1247,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       setTimelineMode,
       followLive,
       clearReviewHold,
+      setTimelinePlaying,
       runSimulation,
       stopSimulation,
       approveCoa,

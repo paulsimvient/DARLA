@@ -157,12 +157,11 @@ export default function ReplayWorkbench({
 
   const handleEventSelect = useCallback(
     (event: SimEvent) => {
-      onPlayingChange(false);
       onTickChange(event.tick);
       onEventSelect(event);
       handleRangeChange(rangeAroundTick(event.tick, playback.final_tick));
     },
-    [handleRangeChange, onEventSelect, onPlayingChange, onTickChange, playback.final_tick],
+    [handleRangeChange, onEventSelect, onTickChange, playback.final_tick],
   );
 
   const handleCreateBranch = async () => {
@@ -262,8 +261,6 @@ export default function ReplayWorkbench({
       selectedEventId={selectedEventId}
       onTickChange={onTickChange}
       onEventSelect={handleEventSelect}
-      onPlayingChange={onPlayingChange}
-      onFollowLive={onFollowLive}
       onTimelineModeChange={onTimelineModeChange}
       liveMode={liveMode}
       rangeModeLabel={summary.modeLabel}

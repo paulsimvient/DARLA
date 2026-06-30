@@ -11,8 +11,17 @@ import {
 import "@xyflow/react/dist/style.css";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { SimModule } from "../data/mockScenario";
+import type { DashboardData, MapEntity, RelationshipEdge } from "../types";
+import type { SimModule } from "../types/moduleCanvas";
 import { layoutSimModules } from "../lib/elkLayout";
+import {
+  buildActiveCausalChain,
+  deriveModuleRuntimeState,
+  relationshipClass,
+  relationshipLabel,
+} from "../utils/moduleGraphRealism";
+import ActiveCausalChainRibbon from "./modules/ActiveCausalChainRibbon";
+import ModuleGraphLegend from "./modules/ModuleGraphLegend";
 import ModuleNodeCard, { type ModuleNodeData } from "./modules/ModuleNodeCard";
 
 const nodeTypes = { module: ModuleNodeCard };
@@ -24,35 +33,59 @@ const canvasDotGrid = {
 
 type ModuleCanvasProps = {
   modules: SimModule[];
+  entities: MapEntity[];
+  relationships: RelationshipEdge[];
+  dashboard: DashboardData | null;
+  currentTick: number;
   selectedId: string | null;
   onSelectModule: (id: string | null) => void;
   onRemoveFromCanvas: (id: string) => void;
   onConnectionChange?: (sourceId: string, targetId: string, action: "add" | "remove") => void;
 };
 
-function buildEdges(canvasModules: SimModule[]): Edge[] {
+function buildEdges(canvasModules: SimModule[], relationships: RelationshipEdge[]): Edge[] {
   const onCanvasIds = new Set(canvasModules.map((m) => m.id));
+  const relationshipByPair = new Map(relationships.map((edge) => [`${edge.source}::${edge.target}`, edge]));
+
   return canvasModules.flatMap((mod) =>
     mod.connections
       .filter((targetId) => onCanvasIds.has(targetId))
-      .map((targetId) => ({
-        id: `${mod.id}-${targetId}`,
-        source: mod.id,
-        target: targetId,
-        type: "default",
-        style: { stroke: "#3f3f46", strokeWidth: 1.5 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: "#3f3f46",
-          width: 12,
-          height: 12,
-        },
-      })),
+      .map((targetId) => {
+        const relationship = relationshipByPair.get(`${mod.id}::${targetId}`);
+        const type = relationship?.type ?? "manual_link";
+        const edgeStyle = relationshipClass(type);
+        return {
+          id: `${mod.id}-${targetId}`,
+          source: mod.id,
+          target: targetId,
+          type: "default",
+          label: relationshipLabel(type),
+          labelShowBg: false,
+          labelStyle: {
+            fill: "#d4d4d8",
+            fontSize: 10,
+            fontWeight: 600,
+          },
+          style: { stroke: edgeStyle.stroke, strokeWidth: 1.8 },
+          className: "module-relationship-edge",
+          data: { relationship, labelClass: edgeStyle.labelClass },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: edgeStyle.stroke,
+            width: 13,
+            height: 13,
+          },
+        } satisfies Edge;
+      }),
   );
 }
 
 export default function ModuleCanvas({
   modules,
+  entities,
+  relationships,
+  dashboard,
+  currentTick,
   selectedId,
   onSelectModule,
   onRemoveFromCanvas,
@@ -64,6 +97,10 @@ export default function ModuleCanvas({
     [canvasModules],
   );
   const layoutKeyRef = useRef<string | null>(null);
+  const activeChain = useMemo(
+    () => buildActiveCausalChain(dashboard, dashboard?.coa_log ?? []),
+    [dashboard],
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ModuleNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -78,12 +115,16 @@ export default function ModuleCanvas({
           id: mod.id,
           type: "module" as const,
           position: prevPositions.get(mod.id) ?? layout.get(mod.id) ?? { x: mod.x, y: mod.y },
-          data: { module: mod, onRemove: onRemoveFromCanvas },
+          data: {
+            module: mod,
+            runtime: deriveModuleRuntimeState(mod, entities, relationships, dashboard, currentTick),
+            onRemove: onRemoveFromCanvas,
+          },
           selected: selectedId === mod.id,
           draggable: true,
         }));
       });
-      setEdges(buildEdges(canvasModules));
+      setEdges(buildEdges(canvasModules, relationships));
     };
 
     if (layoutKeyRef.current !== canvasModuleIds) {
@@ -100,7 +141,18 @@ export default function ModuleCanvas({
     return () => {
       cancelled = true;
     };
-  }, [canvasModules, canvasModuleIds, selectedId, onRemoveFromCanvas, setNodes, setEdges]);
+  }, [
+    canvasModules,
+    canvasModuleIds,
+    currentTick,
+    dashboard,
+    entities,
+    relationships,
+    selectedId,
+    onRemoveFromCanvas,
+    setNodes,
+    setEdges,
+  ]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -132,7 +184,7 @@ export default function ModuleCanvas({
         <div>
           <h3 className="text-xs font-semibold text-darla-text">Module canvas</h3>
           <p className="text-[10px] text-darla-text-muted">
-            {canvasModules.length} blocks · drag output → input to connect · select edge + Backspace to remove
+            {canvasModules.length} blocks · relationship labels show model semantics · selected tick T+{currentTick}
           </p>
         </div>
         <div className="flex gap-1">
@@ -154,34 +206,38 @@ export default function ModuleCanvas({
             Add modules from the library to build your simulation graph
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onEdgesDelete={onEdgesDelete}
-            isValidConnection={isValidConnection}
-            fitView
-            fitViewOptions={{ padding: 0.25 }}
-            nodesDraggable
-            nodesConnectable={Boolean(onConnectionChange)}
-            elementsSelectable
-            edgesFocusable
-            panOnDrag={[1, 2]}
-            zoomOnScroll
-            minZoom={0.25}
-            maxZoom={2}
-            onNodeClick={(_, node) => onSelectModule(node.id)}
-            onPaneClick={() => onSelectModule(null)}
-            deleteKeyCode={["Backspace", "Delete"]}
-            proOptions={{ hideAttribution: true }}
-            colorMode="dark"
-            className="!bg-transparent"
-          >
-            <Controls showInteractive={false} className="!border-darla-border !bg-darla-panel" />
-          </ReactFlow>
+          <>
+            <ActiveCausalChainRibbon chain={activeChain} currentTick={currentTick} />
+            <ModuleGraphLegend />
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onEdgesDelete={onEdgesDelete}
+              isValidConnection={isValidConnection}
+              fitView
+              fitViewOptions={{ padding: 0.3 }}
+              nodesDraggable
+              nodesConnectable={Boolean(onConnectionChange)}
+              elementsSelectable
+              edgesFocusable
+              panOnDrag={[1, 2]}
+              zoomOnScroll
+              minZoom={0.25}
+              maxZoom={2}
+              onNodeClick={(_, node) => onSelectModule(node.id)}
+              onPaneClick={() => onSelectModule(null)}
+              deleteKeyCode={["Backspace", "Delete"]}
+              proOptions={{ hideAttribution: true }}
+              colorMode="dark"
+              className="!bg-transparent"
+            >
+              <Controls showInteractive={false} className="!border-darla-border !bg-darla-panel" />
+            </ReactFlow>
+          </>
         )}
       </div>
     </div>

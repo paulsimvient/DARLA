@@ -59,6 +59,26 @@ struct CourseOfAction {
     CoaEvidence evidence;
     CoaStatus status = CoaStatus::Proposed;
     Tick scheduled_at_tick = 0;
+    // Operational realism fields: these are sim-backed gate/constraint results, not UI decorations.
+    std::string authority_required;
+    bool authority_satisfied = true;
+    bool preconditions_satisfied = true;
+    bool resources_satisfied = true;
+    bool validity_satisfied = true;
+    std::string gate_disposition = "pass";
+    std::string gate_rationale;
+    Tick execution_delay_min = 0;
+    Tick execution_delay_mode = 0;
+    Tick execution_delay_max = 0;
+    double probability_of_success = 0.0;
+    double side_effect_risk = 0.0;
+    std::vector<std::string> side_effects;
+    int monte_carlo_replicates = 0;
+    double mc_expected_mission_gain_mean = 0.0;
+    double mc_expected_mission_gain_lower90 = 0.0;
+    double mc_expected_mission_gain_upper90 = 0.0;
+    Tick mc_detection_time_mean = 0;
+    double mc_downside_risk = 0.0;
 };
 
 std::string toString(CoaStatus status);

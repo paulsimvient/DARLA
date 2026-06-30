@@ -1,0 +1,116 @@
+.coa-board {
+  border: 1px solid rgba(130, 164, 210, 0.2);
+  border-radius: 13px;
+  background: rgba(14, 21, 34, 0.92);
+  color: #e7eef9;
+  padding: 12px;
+}
+
+.coa-board-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.coa-kicker {
+  color: #83bfff;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.coa-board h2 {
+  margin: 3px 0 0;
+  font-size: 16px;
+}
+
+.coa-summary {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.coa-summary span {
+  border: 1px solid rgba(130, 164, 210, 0.2);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: rgba(231, 238, 249, 0.68);
+  font-size: 11px;
+}
+
+.coa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.coa-table th,
+.coa-table td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid rgba(130, 164, 210, 0.1);
+}
+
+.coa-table th {
+  color: rgba(231, 238, 249, 0.54);
+  font-weight: 600;
+}
+
+.coa-table tr {
+  cursor: pointer;
+}
+
+.coa-table tbody tr:hover {
+  background: rgba(131, 191, 255, 0.06);
+}
+
+.coa-table small {
+  display: block;
+  color: rgba(231, 238, 249, 0.42);
+  margin-top: 2px;
+}
+
+.coa-meter {
+  width: 82px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.coa-meter span {
+  display: block;
+  height: 100%;
+  background: #18d596;
+}
+
+.coa-meter.pale span {
+  background: #9fb7d5;
+}
+
+.coa-badge {
+  display: inline-block;
+  border: 1px solid rgba(130, 164, 210, 0.24);
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: rgba(231, 238, 249, 0.8);
+}
+
+.coa-badge.required,
+.coa-badge.not-met,
+.coa-badge.blocked {
+  color: #ffb4b4;
+  border-color: rgba(255, 112, 112, 0.45);
+}
+
+.coa-badge.clear,
+.coa-badge.met,
+.coa-badge.recommend,
+.coa-badge.approved {
+  color: #aaf2c6;
+  border-color: rgba(97, 220, 151, 0.45);
+}

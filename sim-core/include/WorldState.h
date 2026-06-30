@@ -7,6 +7,7 @@
 #include "RelationshipTypes.h"
 #include "ScriptComponent.h"
 #include "StructuralCausalModel.h"
+#include "SimRealism.h"
 
 #include "FmuConfig.h"
 
@@ -154,6 +155,8 @@ struct WorldState {
     std::vector<PythonScriptRuntimeState> python_script_runtime;
     std::vector<PlantedCausalEdge> planted_truth;
     ScmParameters scm;
+    RealismConfig realism;
+    RealismRuntimeState realism_runtime;
     bool scm_noise_enabled = false;
     std::uint64_t scm_noise_seed = 0;
     EnvironmentState environment;

@@ -11,7 +11,7 @@ function formatRunTime(tick: number, tickSeconds: number) {
 }
 
 export default function StatusBar() {
-  const { scenario, status, currentTick, playback, liveMode, authorizationMode, runIdentity, commandAcks, replayView, compareBranch, activeBranch } =
+  const { scenario, status, currentTick, playback, liveMode, authorizationMode, runIdentity, commandAcks, replayView, compareBranch, activeBranch, timelineDiagnostics } =
     useSimulation();
   const scenarioMeta = SCENARIOS.find((s) => s.id === scenario) ?? SCENARIOS[0];
   const tickSeconds = playback?.tick_seconds ?? 1;
@@ -42,6 +42,18 @@ export default function StatusBar() {
         <span className="hidden md:inline">
           Mode <span className="text-darla-text-secondary">{authorizationMode.replace(/_/g, " ")}</span>
         </span>
+        <span className="hidden xl:inline">
+          Timeline{" "}
+          <span className="text-darla-text-secondary">
+            {timelineDiagnostics.playState.replace(/_/g, " ")}
+          </span>
+          {timelineDiagnostics.pauseReason ? (
+            <span className="text-amber-300/90">
+              {" "}· {timelineDiagnostics.pauseReason.kind.replace(/_/g, " ")} T+
+              {timelineDiagnostics.pauseReason.tick}
+            </span>
+          ) : null}
+        </span>
         {runIdentity ? (
           <span className="hidden lg:inline">
             Run{" "}
@@ -67,6 +79,9 @@ export default function StatusBar() {
         <span className="flex items-center gap-1.5 text-darla-text-muted">
           <Circle size={5} className="fill-emerald-500 text-emerald-500" />
           Data Freshness: {liveMode && running ? "Live" : "Replay"}
+          {timelineDiagnostics.lastFrameReceivedAt && running
+            ? ` · last frame ${Math.max(0, Math.round((Date.now() - timelineDiagnostics.lastFrameReceivedAt) / 1000))}s ago`
+            : ""}
         </span>
         <Link to="/replay-3d" className="darla-btn darla-btn-primary py-1 text-[11px]">
           Open 3D Replay

@@ -1,17 +1,40 @@
 import { Bell, ChevronDown, Settings } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { SCENARIOS, useSimulation } from "../context/SimulationContext";
 import { resetPanelLayoutsToDefaults } from "../utils/layoutStorage";
 
-const tabs = [
+const studioTabs = [
+  { path: "/mission", label: "Mission", help: "Operational picture, map, timeline, explorer" },
+  { path: "/reason", label: "Reason", help: "Mission reasoning debugger and evidence chain" },
+  { path: "/decide", label: "Decide", help: "COAs, gates, authority, recommendations" },
+  { path: "/build", label: "Build", help: "Modules, models, FMUs, agents, scenarios" },
+  { path: "/replay", label: "Replay", help: "Mission, reasoning, decision, and evidence replay" },
+  { path: "/validation", label: "Validation", help: "Credibility, realism, evaluation, VV&A" },
+] as const;
+
+const legacyTabs = [
   { path: "/overview", label: "Overview" },
   { path: "/map", label: "Map" },
   { path: "/coas", label: "COAs" },
   { path: "/causal", label: "Causal" },
+  { path: "/realism", label: "Realism" },
+  { path: "/evaluation", label: "Evaluation" },
   { path: "/modules", label: "Modules" },
   { path: "/runs", label: "Runs" },
+  { path: "/cosim", label: "Co-Sim" },
   { path: "/replay-3d", label: "3D Replay" },
+] as const;
+
+const routeLabels: Record<string, string> = Object.fromEntries([
+  ...studioTabs.map((tab) => [tab.path, tab.label]),
+  ...legacyTabs.map((tab) => [tab.path, tab.label]),
+]);
+
+const demoModes = [
+  { id: "policy_auto", label: "Autoplay", help: "Policy auto-approves supported COAs" },
+  { id: "explicit_approvals", label: "Explicit", help: "COAs require explicit approved action tokens" },
+  { id: "human_hold", label: "Review Holds", help: "Pause at review holds for human action" },
 ] as const;
 
 function formatUtcClock(now: Date) {
@@ -26,12 +49,13 @@ export default function TopNav() {
   const { pathname } = useLocation();
   const { scenario, seed, setScenario, runSimulation, status, authorizationMode, setAuthorizationMode } =
     useSimulation();
-  const humanHoldEnabled = authorizationMode === "human_hold";
   const scenarioMeta = SCENARIOS.find((s) => s.id === scenario) ?? SCENARIOS[0];
-  const currentTab = tabs.find((t) => t.path === pathname) ?? tabs[0];
+  const currentLabel = useMemo(() => routeLabels[pathname] ?? "Mission", [pathname]);
   const [clock, setClock] = useState(formatUtcClock(new Date()));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [legacyOpen, setLegacyOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const legacyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setClock(formatUtcClock(new Date())), 1000);
@@ -39,26 +63,35 @@ export default function TopNav() {
   }, []);
 
   useEffect(() => {
-    if (!settingsOpen) return;
+    if (!settingsOpen && !legacyOpen) return;
+
     const onPointerDown = (event: MouseEvent) => {
-      if (!settingsRef.current?.contains(event.target as Node)) {
-        setSettingsOpen(false);
-      }
+      const target = event.target as Node;
+      if (settingsRef.current && !settingsRef.current.contains(target)) setSettingsOpen(false);
+      if (legacyRef.current && !legacyRef.current.contains(target)) setLegacyOpen(false);
     };
+
     window.addEventListener("mousedown", onPointerDown);
     return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [settingsOpen]);
+  }, [settingsOpen, legacyOpen]);
 
   return (
     <header className="shrink-0 border-b border-darla-border bg-darla-bg">
       <div className="flex h-12 items-center justify-between px-5">
-        <div className="flex items-center gap-8">
-          <span className="text-lg font-bold tracking-tight text-darla-text">DARLA</span>
+        <div className="flex items-center gap-7">
+          <div className="flex flex-col leading-none">
+            <span className="text-lg font-bold tracking-tight text-darla-text">DARLA</span>
+            <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-darla-text-muted">
+              Studio v2
+            </span>
+          </div>
+
           <nav className="hidden items-center gap-1 md:flex">
-            {tabs.map((tab) => (
+            {studioTabs.map((tab) => (
               <NavLink
                 key={tab.path}
                 to={tab.path}
+                title={tab.help}
                 className={({ isActive }) =>
                   `relative px-3 py-2 text-[13px] font-medium transition-colors ${
                     isActive
@@ -68,11 +101,32 @@ export default function TopNav() {
                 }
               >
                 {tab.label}
-                {"beta" in tab && tab.beta ? (
-                  <span className="ml-1 text-[10px] font-normal text-darla-text-muted">(Beta)</span>
-                ) : null}
               </NavLink>
             ))}
+
+            <div ref={legacyRef} className="relative">
+              <button
+                type="button"
+                className="ml-1 rounded-md px-2 py-1 text-[11px] text-darla-text-muted hover:bg-darla-panel hover:text-darla-text-secondary"
+                onClick={() => setLegacyOpen((open) => !open)}
+              >
+                Legacy views
+              </button>
+              {legacyOpen ? (
+                <div className="absolute left-0 top-full z-50 mt-2 grid min-w-[170px] gap-1 rounded-lg border border-darla-border bg-darla-panel p-1 shadow-xl">
+                  {legacyTabs.map((tab) => (
+                    <NavLink
+                      key={tab.path}
+                      to={tab.path}
+                      className="rounded-md px-3 py-2 text-[12px] text-darla-text-muted hover:bg-darla-panel-elevated hover:text-darla-text"
+                      onClick={() => setLegacyOpen(false)}
+                    >
+                      {tab.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </nav>
         </div>
 
@@ -114,7 +168,7 @@ export default function TopNav() {
             className="flex items-center gap-1.5 rounded-lg border border-darla-border bg-darla-panel py-1 pl-1 pr-2"
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-darla-blue/20 text-[11px] font-semibold text-darla-blue">
-              JS
+              PC
             </span>
             <ChevronDown size={14} className="text-darla-text-muted" />
           </button>
@@ -123,7 +177,7 @@ export default function TopNav() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-darla-border/60 px-5 py-2">
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-darla-text-muted">
-          <span>Scenarios</span>
+          <span>Scenario</span>
           <span>/</span>
           <select
             className="darla-select py-1 text-darla-text"
@@ -137,39 +191,51 @@ export default function TopNav() {
             ))}
           </select>
           <span>/</span>
-          <span className="text-darla-text-secondary">{currentTab.label}</span>
+          <span className="text-darla-text-secondary">{currentLabel}</span>
+          <span className="hidden md:inline">/</span>
+          <span className="hidden md:inline text-darla-text-muted">
+            Mission · Reason · Decide · Build · Replay
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-darla-text-muted">
+          <span className="hidden text-[11px] text-darla-text-muted xl:inline">
             {scenarioMeta.subtitle} · seed {seed}
           </span>
-          <label
-            className="flex cursor-pointer items-center gap-1.5 text-[11px] text-darla-text-muted"
-            title={
-              status === "loading" || status === "live"
-                ? "Authorization mode is fixed for the active run. Stop or wait for completion, then change before the next run."
-                : "When checked, COA reviews pause for human approval. When unchecked, supported COAs auto-execute under policy_auto."
-            }
+          <div
+            className="flex items-center gap-1.5 text-[11px] text-darla-text-muted"
+            title="Mode selection is explicit: click a mode, then Run Simulation to start the next run with that authorization policy."
           >
-            <input
-              type="checkbox"
-              className="accent-blue-500"
-              checked={humanHoldEnabled}
-              disabled={status === "loading" || status === "live"}
-              onChange={(event) =>
-                setAuthorizationMode(event.target.checked ? "human_hold" : "policy_auto")
-              }
-            />
-            Human hold
-          </label>
+            <span>Mode</span>
+            <div role="group" aria-label="Demo authorization mode" className="flex overflow-hidden rounded-lg border border-darla-border bg-darla-panel">
+              {demoModes.map((mode) => {
+                const active = authorizationMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    title={mode.help}
+                    aria-pressed={active}
+                    onClick={() => setAuthorizationMode(mode.id)}
+                    className={`border-r border-darla-border px-2.5 py-1 text-[11px] transition-colors last:border-r-0 ${
+                      active
+                        ? "bg-darla-blue/20 text-darla-blue ring-1 ring-inset ring-darla-blue/40"
+                        : "text-darla-text-muted hover:bg-darla-panel-elevated hover:text-darla-text-secondary"
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <button
             type="button"
             className="darla-btn darla-btn-primary py-1.5"
-            disabled={status === "loading" || status === "live"}
+            disabled={status === "loading"}
             onClick={runSimulation}
           >
-            {status === "loading" || status === "live" ? "Running…" : "Run Simulation"}
+            {status === "loading" ? "Starting…" : status === "live" ? "Restart Run" : "Run Simulation"}
           </button>
         </div>
       </div>

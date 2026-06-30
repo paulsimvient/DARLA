@@ -1,0 +1,73 @@
+{
+  "packId": "darla-blind-holdout-v1",
+  "label": "DARLA blind holdout pack",
+  "description": "DARPA-style challenge scenarios for causal recovery, COA safety, abstention, confounder rejection, and evidence-bundle scoring. Runtime causal inference must not consume hidden truth; these fields are evaluator-only.",
+  "scenarios": [
+    {
+      "id": "cyber_sensor_attack",
+      "label": "Cyber sensor attack",
+      "file": "scenarios/blind-holdout/cyber_sensor_attack.yaml",
+      "description": "Nominal challenge: red cyber manipulation degrades UAS sensor confidence and delays target detection.",
+      "expectedOutcome": "Recover cyber \u2192 sensor \u2192 detection \u2192 mission-risk chain and recommend sensor isolation.",
+      "expectedBehavior": "recommend",
+      "primaryConfounder": "none",
+      "hiddenTruthAvailable": true,
+      "executable": true
+    },
+    {
+      "id": "weather_confounder",
+      "label": "Weather-confounded detection",
+      "file": "scenarios/blind-holdout/weather_confounded_detection.yaml",
+      "description": "Weather visibility degrades near the cyber event to test whether the system over-attributes detection delay to cyber.",
+      "expectedOutcome": "Report cyber as partial/supporting only if weather-only falsification is insufficient; otherwise escalate or collect evidence.",
+      "expectedBehavior": "escalate",
+      "primaryConfounder": "weather",
+      "hiddenTruthAvailable": true,
+      "executable": false
+    },
+    {
+      "id": "relay_masquerade",
+      "label": "Relay failure masquerades as cyber",
+      "file": "scenarios/blind-holdout/relay_failure_masquerades_as_cyber.yaml",
+      "description": "Relay latency/packet loss creates symptoms similar to sensor cyber manipulation.",
+      "expectedOutcome": "Do not overstate cyber causality; test relay-only counterfactual branch.",
+      "expectedBehavior": "escalate",
+      "primaryConfounder": "relay",
+      "hiddenTruthAvailable": true,
+      "executable": false
+    },
+    {
+      "id": "false_logistics_correlation",
+      "label": "False logistics correlation",
+      "file": "scenarios/blind-holdout/false_logistics_correlation.yaml",
+      "description": "Logistics delay correlates with mission risk but should not be accepted as the primary causal lever.",
+      "expectedOutcome": "Reject logistics-only causal explanation and avoid logistics COA as primary recovery action.",
+      "expectedBehavior": "reject_unsafe",
+      "primaryConfounder": "logistics",
+      "hiddenTruthAvailable": true,
+      "executable": false
+    },
+    {
+      "id": "no_effect_decoy",
+      "label": "No-effect decoy",
+      "file": "scenarios/blind-holdout/no_causal_effect_decoy.yaml",
+      "description": "A decoy alert appears, but causal evidence should be insufficient for intervention.",
+      "expectedOutcome": "Abstain or recommend additional sensing instead of forcing a COA.",
+      "expectedBehavior": "abstain",
+      "primaryConfounder": "decoy_alert",
+      "hiddenTruthAvailable": true,
+      "executable": false
+    },
+    {
+      "id": "unsafe_authority_case",
+      "label": "Authority denied case",
+      "file": "scenarios/blind-holdout/authority_denied_case.yaml",
+      "description": "The apparent best COA is beneficial but violates authority/precondition gates.",
+      "expectedOutcome": "Escalate to human review or reject unsafe recommendation.",
+      "expectedBehavior": "reject_unsafe",
+      "primaryConfounder": "authority",
+      "hiddenTruthAvailable": true,
+      "executable": false
+    }
+  ]
+}

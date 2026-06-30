@@ -31,6 +31,147 @@ export function isKeyEvent(event: SimEvent): boolean {
   return false;
 }
 
+export type TimelineDisplayClass = "routine" | "marker" | "major" | "critical";
+
+export type TimelinePausePolicy =
+  | "never"
+  | "notify_only"
+  | "pause_if_user_enabled"
+  | "always_pause";
+
+export type TimelineEventLane =
+  | "authority"
+  | "causal"
+  | "coa"
+  | "cyber"
+  | "execution"
+  | "observation"
+  | "warning";
+
+export type TimelineEventClassification = {
+  displayClass: TimelineDisplayClass;
+  pausePolicy: TimelinePausePolicy;
+  lane: TimelineEventLane;
+  severity: number;
+  dedupeKey: string;
+};
+
+function deltaValue(event: SimEvent, field: string): string {
+  return event.deltas.find((delta) => delta.field === field)?.after ?? "";
+}
+
+/**
+ * Classifies event importance separately from playback control.
+ *
+ * The old UI treated every key event as a reason to stop the timeline. That made
+ * recurring COA and causal-monitor events look like playback failures. This
+ * classifier preserves those events as visible markers while only allowing a
+ * narrow set of events to pause playback.
+ */
+export function classifyTimelineEvent(event: SimEvent): TimelineEventClassification {
+  if (isRoutineEvent(event)) {
+    return {
+      displayClass: "routine",
+      pausePolicy: "never",
+      lane: "observation",
+      severity: 5,
+      dedupeKey: event.label,
+    };
+  }
+
+  if (event.label === "review_hold") {
+    return {
+      displayClass: "critical",
+      pausePolicy: "always_pause",
+      lane: "authority",
+      severity: 95,
+      dedupeKey: `review_hold:${event.tick}`,
+    };
+  }
+
+  if (event.label === "online_agent_decision") {
+    return {
+      displayClass: "critical",
+      pausePolicy: "pause_if_user_enabled",
+      lane: "authority",
+      severity: 90,
+      dedupeKey: `decision:${deltaValue(event, "agent.selected_action")}`,
+    };
+  }
+
+  if (event.label.includes("coa_recommendation")) {
+    return {
+      displayClass: "major",
+      pausePolicy: "notify_only",
+      lane: "coa",
+      severity: 70,
+      dedupeKey: `coa:${deltaValue(event, "coa.rank.1.action")}:${deltaValue(event, "coa.rank.1.score")}`,
+    };
+  }
+
+  if (event.label === "causal_monitor_warning") {
+    return {
+      displayClass: "major",
+      pausePolicy: "notify_only",
+      lane: "causal",
+      severity: 75,
+      dedupeKey: `causal:${event.deltas.map((delta) => `${delta.field}:${delta.after}`).join("|")}`,
+    };
+  }
+
+  const haystack = `${event.type} ${event.label}`.toLowerCase();
+  if (haystack.includes("cyber") || haystack.includes("attack") || haystack.includes("compromis")) {
+    return {
+      displayClass: "critical",
+      pausePolicy: "pause_if_user_enabled",
+      lane: "cyber",
+      severity: 88,
+      dedupeKey: event.label,
+    };
+  }
+
+  if (haystack.includes("mission") || haystack.includes("fail") || haystack.includes("loss")) {
+    return {
+      displayClass: "critical",
+      pausePolicy: "pause_if_user_enabled",
+      lane: "warning",
+      severity: 85,
+      dedupeKey: event.label,
+    };
+  }
+
+  return {
+    displayClass: isKeyEvent(event) ? "marker" : "routine",
+    pausePolicy: "never",
+    lane: inferEventType(event) === "warning" ? "warning" : "observation",
+    severity: isKeyEvent(event) ? 45 : 10,
+    dedupeKey: event.label,
+  };
+}
+
+export function isPauseWorthyEvent(
+  event: SimEvent,
+  options: { pauseOnCriticalEvents?: boolean } = {},
+): boolean {
+  const classification = classifyTimelineEvent(event);
+  if (classification.pausePolicy === "always_pause") return true;
+  if (classification.pausePolicy === "pause_if_user_enabled") {
+    return Boolean(options.pauseOnCriticalEvents);
+  }
+  return false;
+}
+
+export function firstPauseWorthyEventAtTick(
+  events: SimEvent[],
+  tick: number,
+  options: { pauseOnCriticalEvents?: boolean } = {},
+): SimEvent | null {
+  for (const event of events) {
+    if (event.tick === tick && isPauseWorthyEvent(event, options)) return event;
+  }
+  return null;
+}
+
 export function filterKeyEvents(events: SimEvent[]): SimEvent[] {
   return events.filter(isKeyEvent).sort((a, b) => a.tick - b.tick || a.event_id - b.event_id);
 }

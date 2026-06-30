@@ -3,6 +3,7 @@
 
 #include "ExecutionBudget.h"
 #include "Snapshot.h"
+#include "SimRealism.h"
 #include "sim-graph/GraphEntityResolver.h"
 
 #include <algorithm>
@@ -185,7 +186,7 @@ void RedCyberAgent::step(WorldState& world, EventLedger& ledger, const Relations
             entityIdFor(world, "red_cyber_actor"),
             EventType::Observe,
             {entityIdFor(world, "blue_uas_1")},
-            {{"red_cyber.blue_posture", "unknown", fixed(belief.blue_posture_score)}, {"red_cyber.attack_opportunity", "unknown", fixed(belief.attack_opportunity)}},
+            {{"red_cyber.blue_posture", "unknown", fixed(belief.blue_posture_score)}, {"red_cyber.attack_opportunity", "unknown", fixed(belief.attack_opportunity)}, {"red_cyber.policy", "unknown", toString(world.realism.red_adversary.mode)}, {"red_cyber.target_score.uas", "unknown", fixed(world.realism_runtime.red_target_score_uas)}, {"red_cyber.target_score.relay", "unknown", fixed(world.realism_runtime.red_target_score_relay)}},
             {},
             {"red-cyber-agent-v0"},
             0.72,
@@ -206,7 +207,39 @@ void RedCyberAgent::step(WorldState& world, EventLedger& ledger, const Relations
             break;
         }
     }
-    if (!scripted) return;
+    if (!scripted) {
+        if (world.realism.red_adversary.mode == RedPolicyMode::AdaptiveOpportunistic && world.tick >= world.realism.red_adversary.mean_dwell_ticks) {
+            const auto* actor = world.entityByName("red_cyber_actor");
+            if (!actor) return;
+            const bool prefer_relay = world.realism_runtime.red_target_score_relay > world.realism_runtime.red_target_score_uas + 0.05;
+            const std::string target = prefer_relay ? "blue_relay_1" : "blue_uas_1";
+            const std::string action = prefer_relay ? "degrade_comms_only" : "degrade_sensor_feed";
+            ledger.append(SimEvent{
+                0,
+                world.tick,
+                actor->id,
+                EventType::PolicyChangeProposed,
+                {entityIdFor(world, target)},
+                {{"red_cyber.action", "idle", action}, {"red_cyber.target", "none", target}, {"red_cyber.decision_basis", "none", world.realism_runtime.last_red_decision_summary}},
+                {},
+                {"red-cyber-agent-v1"},
+                0.78,
+                0.12,
+                0.18,
+                "adaptive adversary policy selected target from mission-effect/stealth score",
+                "synthetic calibrated red policy",
+                "red_cyber_adaptive_decision"});
+            world.pending_cyber_attack = PendingCyberAttack{
+                true,
+                "red_cyber_actor",
+                target,
+                action,
+                prefer_relay ? 0.0 : world.scm.sensor_beta_cyber,
+                prefer_relay ? -0.25 : -0.18};
+            belief.attack_committed = true;
+        }
+        return;
+    }
 
     const auto* actor = world.entityByName(scripted->actor);
     if (!actor) return;
@@ -223,7 +256,7 @@ void RedCyberAgent::step(WorldState& world, EventLedger& ledger, const Relations
         actor->id,
         EventType::PolicyChangeProposed,
         {entityIdFor(world, target)},
-        {{"red_cyber.action", "idle", scripted->action}, {"red_cyber.target", "none", target}},
+        {{"red_cyber.action", "idle", scripted->action}, {"red_cyber.target", "none", target}, {"red_cyber.decision_basis", "none", world.realism_runtime.last_red_decision_summary}},
         {},
         {"red-cyber-agent-v0"},
         0.84,
@@ -766,6 +799,7 @@ void BlueCommanderAgent::step(
         coa.rationale = candidate.structuredRationale;
         coa.status = CoaStatus::Recommended;
         coa.scheduled_at_tick = scheduleTickFor(candidate.type, world.tick);
+        applyCoaRealism(coa, world);
 
         {
             const auto* sensor_loss = lastEventWithLabel(ledger, "sensor_confidence_loss");
@@ -875,6 +909,8 @@ void BlueCommanderAgent::step(
         recommendation_deltas.push_back({"coa.rank." + std::to_string(i + 1) + ".gain", "0.000", scoreText(coa.expected_mission_gain)});
         recommendation_deltas.push_back({"coa.rank." + std::to_string(i + 1) + ".confidence", "0.000", scoreText(coa.causal_confidence)});
         recommendation_deltas.push_back({"coa.rank." + std::to_string(i + 1) + ".status", "none", toString(coa.status)});
+        recommendation_deltas.push_back({"coa.rank." + std::to_string(i + 1) + ".gate", "none", coa.gate_disposition});
+        recommendation_deltas.push_back({"coa.rank." + std::to_string(i + 1) + ".mc_gain", "0.000", scoreText(coa.mc_expected_mission_gain_mean)});
     }
 
     std::vector<EventId> recommendation_parents;
@@ -947,6 +983,7 @@ void BlueCommanderAgent::step(
         {{"agent.selected_action", "none", toString(selected.type)},
             {"agent.action_score", "0.000", scoreText(selected.score())},
             {"agent.causal_gain", "0.000", scoreText(selected.expectedMissionGain)},
+            {"agent.partial_observability.p_cyber", "0.000", scoreText(world.agent_beliefs.commander.p_cyber_compromise)},
             {"authority.reason", "none", authority.reason},
             {"authority.mode", "none", toString(world.authorization_mode)}},
         parents,

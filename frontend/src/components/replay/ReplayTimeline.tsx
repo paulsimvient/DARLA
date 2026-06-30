@@ -12,7 +12,6 @@ type ReplayTimelineProps = {
   selectedEventId?: number | null;
   onTickChange: (tick: number) => void;
   onEventSelect: (event: SimEvent) => void;
-  onPlayingChange?: (playing: boolean) => void;
   liveMode?: boolean;
 };
 
@@ -23,7 +22,6 @@ export default function ReplayTimeline({
   selectedEventId,
   onTickChange,
   onEventSelect,
-  onPlayingChange,
   liveMode = false,
 }: ReplayTimelineProps) {
   const maxTick = playback.final_tick;
@@ -99,7 +97,6 @@ export default function ReplayTimeline({
                       style={{ left: `${left}%` }}
                       title={`T+${event.tick} · ${formatEventTitle(event)}`}
                       onClick={() => {
-                        onPlayingChange?.(false);
                         onTickChange(event.tick);
                         onEventSelect(event);
                       }}
@@ -141,7 +138,6 @@ export default function ReplayTimeline({
         value={currentTick}
         aria-label="Simulation playback position"
         onChange={(e) => {
-          onPlayingChange?.(false);
           onTickChange(Number(e.target.value));
         }}
       />

@@ -1,0 +1,24 @@
+{
+  "manifest_version": "darla-sim-eval-v1",
+  "scenario": "uas-maritime-cyber-v001",
+  "scenario_file": "scenarios/uas-maritime-cyber/scenario.yaml",
+  "seed": 42,
+  "truth_access": "hidden_from_runtime",
+  "events": 5008,
+  "runtime_hypothesis_edges": 4,
+  "mission_success_score": 0.4200,
+  "target_detected": true,
+  "detection_time": 1980,
+  "metrics": {
+    "causal_precision_proxy": 0.5000,
+    "causal_recall_proxy": 1.0000,
+    "readiness_score": 0.6590,
+    "status": "watch"
+  },
+  "top_runtime_causal_hypotheses": [
+    {"rank": 1, "cause": "commander.coa_decision", "effect": "mission_success_score", "score": 0.5000, "temporal": 0.8500, "intervention": 0.1500, "confounding_penalty": 0.0500},
+    {"rank": 2, "cause": "mission_success_score", "effect": "blue_uas_1.sensor.confidence", "score": 0.5000, "temporal": 0.8500, "intervention": 0.1500, "confounding_penalty": 0.0500},
+    {"rank": 3, "cause": "detection_time", "effect": "commander.coa_decision", "score": 0.4550, "temporal": 0.8500, "intervention": 0.1500, "confounding_penalty": 0.0500},
+    {"rank": 4, "cause": "red_cyber_actor.cyber_effect", "effect": "detection_time", "score": 0.4550, "temporal": 0.8500, "intervention": 0.1500, "confounding_penalty": 0.0500}
+  ]
+}

@@ -65,9 +65,9 @@ type TimeGroupTimelineProps = {
   selectedEventId?: number | null;
   onTickChange: (tick: number) => void;
   onEventSelect: (event: SimEvent) => void;
+  onTimelineModeChange?: (mode: TimelineMode) => void;
   onPlayingChange?: (playing: boolean) => void;
   onFollowLive?: () => void;
-  onTimelineModeChange?: (mode: TimelineMode) => void;
   liveMode?: boolean;
   rangeModeLabel: string;
   selectedEventCount: number;
@@ -84,8 +84,6 @@ export default function TimeGroupTimeline({
   selectedEventId,
   onTickChange,
   onEventSelect,
-  onPlayingChange,
-  onFollowLive,
   onTimelineModeChange,
   liveMode = false,
   rangeModeLabel,
@@ -127,7 +125,7 @@ export default function TimeGroupTimeline({
     () =>
       resolveTimelineMaxTick(playback, {
         liveMode,
-        liveTick,
+        // liveTick intentionally excluded: no separate green live playhead.
         lastEventTick,
         scenarioMaxTick,
       }),
@@ -189,15 +187,6 @@ export default function TimeGroupTimeline({
       onTimelineModeChange?.("inspect");
     }
   }, [onTimelineModeChange, timelineMode]);
-
-  const enableFollowMode = useCallback(() => {
-    suppressInspectOnScrollRef.current = true;
-    onTimelineModeChange?.("follow");
-    onFollowLive?.();
-    window.setTimeout(() => {
-      suppressInspectOnScrollRef.current = false;
-    }, 600);
-  }, [onFollowLive, onTimelineModeChange]);
 
   const scrollToTick = useCallback(
     (tick: number, behavior: ScrollBehavior = "smooth", align: "center" | "follow" = "center") => {
@@ -304,9 +293,8 @@ export default function TimeGroupTimeline({
       if (suppressInspectOnScrollRef.current) return;
       if (Date.now() < programmaticScrollUntilRef.current) return;
       if (autoScrollingRef.current) return;
-      if (timelineMode === "follow") {
-        onTimelineModeChange?.("inspect");
-      }
+      // Scrolling the timeline is a viewport action, not a playback action.
+      // Keep playback/follow state stable; explicit scrubs/clicks enter inspect mode.
     };
     updateScrollMetrics();
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
@@ -336,7 +324,6 @@ export default function TimeGroupTimeline({
   const finishDrag = useCallback(() => {
     if (didDrag.current && dragStartTick.current != null) {
       enterInspectMode();
-      onPlayingChange?.(false);
     } else if (dragStartTick.current != null && !suppressClickSeekRef.current) {
       const rawTick = dragStartTick.current;
       const { tick: snapped, event } = snapSeekToNearestMarker(
@@ -347,7 +334,6 @@ export default function TimeGroupTimeline({
         { preferAtOrBefore: rawTick < currentTick },
       );
       enterInspectMode();
-      onPlayingChange?.(false);
       onTickChange(snapped);
       if (event) {
         onEventSelect(event);
@@ -366,7 +352,6 @@ export default function TimeGroupTimeline({
     events,
     maxTick,
     onEventSelect,
-    onPlayingChange,
     onRangeChange,
     onTickChange,
     pxPerTick,
@@ -456,15 +441,8 @@ export default function TimeGroupTimeline({
       badgeClass: "border-blue-600 bg-blue-600 text-white",
       label: formatSimTime(currentTick, tickSeconds, true),
     });
-    if (liveMode && liveTick !== currentTick) {
-      items.push({
-        id: "live",
-        tick: Math.min(liveTick, maxTick),
-        lineClass: "border-l-2 border-dashed border-emerald-400",
-        badgeClass: "border-emerald-600 bg-emerald-700 text-white",
-        label: `LIVE · ${formatSimTime(liveTick, tickSeconds, true)}`,
-      });
-    }
+    // Timeline V2 deliberately renders exactly one playhead. Backend/live progress
+    // is shown as text status elsewhere so users do not see two competing cursors.
     return items;
   }, [
     currentTick,
@@ -500,39 +478,34 @@ export default function TimeGroupTimeline({
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-black uppercase tracking-[0.12em] text-darla-text">
-            Live timeline
+            Replay timeline
           </h2>
           <p className="mt-0.5 text-xs text-darla-text-muted">
             {timelineMode === "inspect"
-              ? `Inspecting T+${currentTick}${liveMode ? ` · live at T+${liveTick}` : ""}`
-              : liveMode && liveTick > currentTick
-                ? `Following · playhead T+${currentTick} · live at T+${liveTick} · pauses at event nodes`
-                : "Following · playhead advances tick-by-tick and pauses at event nodes"}
+              ? `Inspecting T+${currentTick}`
+              : `Replay playhead T+${currentTick} · backend buffered to T+${liveTick}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
               liveMode
-                ? "border-emerald-500/40 bg-emerald-950/40 text-emerald-200"
+                ? "border-blue-500/40 bg-blue-950/40 text-blue-200"
                 : "border-slate-500/40 bg-slate-900/40 text-slate-300"
             }`}
           >
-            {liveMode ? "Live" : "Replay"}
+            Replay
           </span>
           <button
             type="button"
             className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold hover:bg-[#111827] ${
-              timelineMode === "follow"
-                ? "border-emerald-600/50 bg-emerald-950/40 text-emerald-200"
-                : "border-slate-600 bg-[#0b1220] text-blue-100"
+              "border-slate-600 bg-[#0b1220] text-blue-100"
             }`}
             onClick={() => {
-              enableFollowMode();
               scrollToTick(currentTick, "smooth", "follow");
             }}
           >
-            Follow playhead
+            Center playhead
           </button>
           <div className="rounded-lg border border-[#263143] bg-[#0b1018] px-3 py-1.5 text-xs">
             <span className="text-darla-text-muted">Now </span>
@@ -575,9 +548,6 @@ export default function TimeGroupTimeline({
             type="button"
             className="rounded-lg border border-slate-600 bg-[#0b1220] px-2.5 py-1.5 text-[11px] font-bold text-blue-100 hover:bg-[#111827]"
             onClick={() => {
-              if (timelineMode === "follow") {
-                enableFollowMode();
-              }
               centerPlayhead();
             }}
           >
@@ -759,8 +729,6 @@ export default function TimeGroupTimeline({
                             future={marker.event.tick > currentTick}
                             onSelect={(selected) => {
                               suppressClickSeekRef.current = true;
-                              enterInspectMode();
-                              onPlayingChange?.(false);
                               onTickChange(selected.tick);
                               onEventSelect(selected);
                               onRangeChange(rangeAroundTick(selected.tick, maxTick));

@@ -4,6 +4,7 @@ import Badge from "../Badge";
 import { RHandle, RPanel, VGroup } from "../layout/ResizableLayout";
 import type { SimulationStatus } from "../../context/SimulationContext";
 import { useSimulation } from "../../context/SimulationContext";
+import { assessCoaRealism } from "../../realism/coaEvaluation";
 import type { PlaybackFrame } from "../../playback";
 import type { CourseOfAction, MapEntity, RelationshipEdge } from "../../types";
 import {
@@ -47,6 +48,7 @@ export default function COADecisionCenter({
   }
 
   const stripNodes = buildCausalStripNodes(coa);
+  const realismAssessment = assessCoaRealism([coa])[0];
   const isApproved = approvals.includes(coa.id);
   const isRunning = status === "loading" || status === "live";
 
@@ -71,6 +73,11 @@ export default function COADecisionCenter({
                 {isApproved ? <Badge tone="green">Approved — sim command sent</Badge> : null}
                 <Badge tone="blue">Target: {coa.target}</Badge>
                 <Badge tone="orange">Causal confidence {coa.causal_confidence.toFixed(2)}</Badge>
+                {realismAssessment ? (
+                  <Badge tone={realismAssessment.recommendedDisposition === "recommend" ? "green" : realismAssessment.recommendedDisposition === "abstain" ? "orange" : "blue"}>
+                    Gate: {realismAssessment.recommendedDisposition}
+                  </Badge>
+                ) : null}
                 <Badge tone="neutral">Proposed T+{coa.proposed_tick}</Badge>
                 <Badge tone="neutral">Scheduled T+{coa.scheduled_at_tick}</Badge>
                 <Badge tone="neutral">{authorizationMode.replace(/_/g, " ")}</Badge>
@@ -99,6 +106,13 @@ export default function COADecisionCenter({
                 onClick={() => onOpenCausalTrace?.(coa)}
               >
                 Open Causal Trace
+              </button>
+              <button
+                type="button"
+                className="darla-btn py-2.5"
+                onClick={() => navigate("/realism")}
+              >
+                Open Realism Gates
               </button>
               <button
                 type="button"

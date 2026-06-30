@@ -1,0 +1,83 @@
+.sync-inspector {
+  color: #e7eef9;
+  background: #0a101a;
+  border-left: 1px solid rgba(130, 164, 210, 0.18);
+  padding: 12px;
+  min-width: 260px;
+}
+
+.sync-kicker {
+  color: #83bfff;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.sync-inspector h2,
+.sync-inspector h3 {
+  margin: 4px 0 8px;
+}
+
+.sync-muted,
+.sync-card p {
+  color: rgba(231, 238, 249, 0.66);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sync-card {
+  border: 1px solid rgba(130, 164, 210, 0.2);
+  background: rgba(14, 21, 34, 0.9);
+  border-radius: 12px;
+  padding: 11px;
+  margin-top: 10px;
+}
+
+.sync-primary {
+  border-color: rgba(126, 226, 168, 0.38);
+}
+
+.sync-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sync-grid .sync-card {
+  margin-top: 0;
+  text-align: center;
+}
+
+.sync-grid b {
+  display: block;
+  font-size: 22px;
+}
+
+.sync-grid span {
+  color: rgba(231, 238, 249, 0.55);
+  font-size: 10px;
+}
+
+.sync-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sync-row button {
+  height: 30px;
+  border: 1px solid rgba(130, 164, 210, 0.25);
+  background: rgba(255,255,255,0.04);
+  color: #e7eef9;
+  border-radius: 8px;
+}
+
+.sync-card pre {
+  max-height: 260px;
+  overflow: auto;
+  color: #d7e9ff;
+  font-size: 11px;
+  margin: 0;
+}

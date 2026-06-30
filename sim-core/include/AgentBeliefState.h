@@ -83,6 +83,10 @@ struct CommanderBelief {
     bool anomaly_review_pending = false;
     bool anomaly_was_active = false;
     double coa_entropy = 0.0;
+    double p_cyber_compromise = 0.05;
+    double p_weather_degradation = 0.05;
+    double p_sensor_fault = 0.05;
+    double p_relay_failure = 0.05;
     BeliefTrace trace;
 };
 

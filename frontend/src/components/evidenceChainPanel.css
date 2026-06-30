@@ -1,0 +1,83 @@
+.evidence-chain {
+  border: 1px solid rgba(130, 164, 210, 0.2);
+  border-radius: 13px;
+  background: rgba(14, 21, 34, 0.92);
+  color: #e7eef9;
+  padding: 12px;
+}
+
+.evidence-chain header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ev-kicker {
+  color: #83bfff;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.evidence-chain h2 {
+  margin: 3px 0 0;
+  font-size: 16px;
+}
+
+.evidence-chain header span {
+  color: rgba(231, 238, 249, 0.62);
+  font-size: 12px;
+}
+
+.ev-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.ev-step {
+  border: 1px solid rgba(130, 164, 210, 0.18);
+  border-radius: 11px;
+  padding: 10px;
+  background: rgba(255,255,255,0.025);
+}
+
+.ev-step.ok {
+  border-color: rgba(97, 220, 151, 0.3);
+}
+
+.ev-step.warn {
+  border-color: rgba(255, 211, 110, 0.32);
+}
+
+.ev-step.blocked {
+  border-color: rgba(255, 112, 112, 0.34);
+}
+
+.ev-num {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #beddff;
+  background: rgba(131, 191, 255, 0.14);
+  font-weight: 800;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.ev-step h3 {
+  margin: 0 0 5px;
+  font-size: 13px;
+}
+
+.ev-step p {
+  margin: 0;
+  color: rgba(231, 238, 249, 0.68);
+  font-size: 12px;
+  line-height: 1.4;
+}

@@ -1,4 +1,6 @@
+import type { ComponentType } from "react";
 import {
+  BarChart3,
   Box,
   Boxes,
   Cpu,
@@ -7,20 +9,34 @@ import {
   LayoutDashboard,
   Map,
   Network,
+  ShieldCheck,
   Share2,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-const navItems = [
-  { path: "/overview", label: "Overview", icon: LayoutDashboard },
+type NavItem = {
+  path: string;
+  label: string;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  beta?: boolean;
+};
+
+const primaryNavItems: NavItem[] = [
+  { path: "/mission", label: "Mission", icon: LayoutDashboard },
+  { path: "/reason", label: "Reason", icon: Share2 },
+  { path: "/decide", label: "Decide", icon: GitBranch },
+  { path: "/build", label: "Build", icon: Boxes },
+  { path: "/replay", label: "Replay", icon: History },
+  { path: "/validation", label: "Validation", icon: ShieldCheck },
+];
+
+const secondaryNavItems: NavItem[] = [
   { path: "/map", label: "Map", icon: Map },
-  { path: "/coas", label: "COAs", icon: GitBranch },
-  { path: "/causal", label: "Causal", icon: Share2 },
-  { path: "/modules", label: "Modules", icon: Boxes },
-  { path: "/runs", label: "Runs", icon: History },
-  { path: "/cosim", label: "Co-Sim Studio", icon: Cpu },
+  { path: "/modules", label: "Modules", icon: Cpu },
+  { path: "/causal", label: "Legacy Causal", icon: Network },
+  { path: "/runs", label: "Runs", icon: BarChart3 },
   { path: "/replay-3d", label: "3D Replay", icon: Box, beta: true },
-] as const;
+];
 
 export default function NavRail() {
   return (
@@ -28,36 +44,39 @@ export default function NavRail() {
       <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-darla-blue text-xs font-bold text-white">
         D
       </div>
-      {navItems.map((item) => (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          title={item.label}
-          className={({ isActive }) =>
-            `group relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
-              isActive
-                ? "bg-darla-panel-elevated text-darla-blue"
-                : "text-darla-text-muted hover:bg-darla-panel hover:text-darla-text-secondary"
-            }`
-          }
-        >
-          <item.icon size={18} strokeWidth={1.75} />
-          {"beta" in item && item.beta ? (
-            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-darla-blue" />
-          ) : null}
-        </NavLink>
+
+      {primaryNavItems.map((item) => (
+        <RailLink key={item.path} item={item} />
       ))}
-      <div className="mt-auto">
-        <NavLink
-          to="/causal"
-          title="Graph"
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-darla-text-muted hover:bg-darla-panel hover:text-darla-text-secondary"
-        >
-          <Network size={18} strokeWidth={1.75} />
-        </NavLink>
-      </div>
+
+      <div className="my-2 h-px w-7 bg-darla-border" />
+
+      {secondaryNavItems.map((item) => (
+        <RailLink key={item.path} item={item} />
+      ))}
     </nav>
   );
 }
 
-export { navItems };
+function RailLink({ item }: { item: NavItem }) {
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      to={item.path}
+      title={item.label}
+      className={({ isActive }) =>
+        `group relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+          isActive
+            ? "bg-darla-panel-elevated text-darla-blue"
+            : "text-darla-text-muted hover:bg-darla-panel hover:text-darla-text-secondary"
+        }`
+      }
+    >
+      <Icon size={18} strokeWidth={1.75} />
+      {item.beta ? <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-darla-blue" /> : null}
+    </NavLink>
+  );
+}
+
+export const navItems = [...primaryNavItems, ...secondaryNavItems];

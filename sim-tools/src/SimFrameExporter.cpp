@@ -2,6 +2,8 @@
 
 #include "ActionType.h"
 #include "Entity.h"
+#include "SimRealism.h"
+#include "ModelValidity.h"
 
 #include <algorithm>
 #include <array>
@@ -133,6 +135,10 @@ void writeAgentBeliefs(std::ostringstream& out, const AgentBeliefRegistry& belie
         << "\"coa_entropy\":" << jsonNumber(beliefs.commander.coa_entropy) << ','
         << "\"causal_warning\":" << jsonBool(beliefs.causal_monitor.emergence_warning) << ','
         << "\"credibility_valid\":" << jsonBool(beliefs.credibility.validity_ok)
+        << ',' << "\"p_cyber_compromise\":" << jsonNumber(beliefs.commander.p_cyber_compromise)
+        << ',' << "\"p_weather_degradation\":" << jsonNumber(beliefs.commander.p_weather_degradation)
+        << ',' << "\"p_sensor_fault\":" << jsonNumber(beliefs.commander.p_sensor_fault)
+        << ',' << "\"p_relay_failure\":" << jsonNumber(beliefs.commander.p_relay_failure)
         << '}';
 }
 
@@ -234,8 +240,32 @@ void writeCoaEntry(std::ostringstream& out, const CourseOfAction& coa) {
         << "\"evidence\":";
     writeCoaEvidence(out, coa.evidence);
     out << ",\"status\":" << jsonString(toString(coa.status)) << ','
-        << "\"scheduled_at_tick\":" << coa.scheduled_at_tick
-        << '}';
+        << "\"scheduled_at_tick\":" << coa.scheduled_at_tick << ','
+        << "\"authority_required\":" << jsonString(coa.authority_required) << ','
+        << "\"authority_satisfied\":" << jsonBool(coa.authority_satisfied) << ','
+        << "\"preconditions_satisfied\":" << jsonBool(coa.preconditions_satisfied) << ','
+        << "\"resources_satisfied\":" << jsonBool(coa.resources_satisfied) << ','
+        << "\"validity_satisfied\":" << jsonBool(coa.validity_satisfied) << ','
+        << "\"gate_disposition\":" << jsonString(coa.gate_disposition) << ','
+        << "\"gate_rationale\":" << jsonString(coa.gate_rationale) << ','
+        << "\"execution_delay_min\":" << coa.execution_delay_min << ','
+        << "\"execution_delay_mode\":" << coa.execution_delay_mode << ','
+        << "\"execution_delay_max\":" << coa.execution_delay_max << ','
+        << "\"probability_of_success\":" << jsonNumber(coa.probability_of_success) << ','
+        << "\"side_effect_risk\":" << jsonNumber(coa.side_effect_risk) << ','
+        << "\"side_effects\":[";
+    for (std::size_t i = 0; i < coa.side_effects.size(); ++i) {
+        if (i > 0) out << ',';
+        out << jsonString(coa.side_effects[i]);
+    }
+    out << "],\"monte_carlo\":{"
+        << "\"replicates\":" << coa.monte_carlo_replicates << ','
+        << "\"expected_mission_gain_mean\":" << jsonNumber(coa.mc_expected_mission_gain_mean) << ','
+        << "\"expected_mission_gain_lower90\":" << jsonNumber(coa.mc_expected_mission_gain_lower90) << ','
+        << "\"expected_mission_gain_upper90\":" << jsonNumber(coa.mc_expected_mission_gain_upper90) << ','
+        << "\"detection_time_mean\":" << coa.mc_detection_time_mean << ','
+        << "\"downside_risk\":" << jsonNumber(coa.mc_downside_risk)
+        << "}}";
 }
 
 const CourseOfAction* findActiveCoa(const WorldState& world) {
@@ -312,6 +342,127 @@ void writeTemporalCausalEdges(std::ostringstream& out, const TemporalCausalGraph
             << '}';
     }
     out << ']';
+}
+
+
+void writeCalibrationBasis(std::ostringstream& out, CalibrationBasis basis) {
+    out << jsonString(toString(basis));
+}
+
+void writeValidityEnvelope(std::ostringstream& out, const ModelValidityEnvelope& envelope) {
+    out << '{'
+        << "\"model_id\":" << jsonString(envelope.model_id) << ','
+        << "\"domain\":" << jsonString(envelope.domain) << ','
+        << "\"calibration_basis\":";
+    writeCalibrationBasis(out, envelope.calibration_basis);
+    out << ",\"confidence\":" << jsonNumber(envelope.confidence) << ",\"valid_for\":[";
+    for (std::size_t i = 0; i < envelope.valid_for.size(); ++i) {
+        if (i > 0) out << ',';
+        out << jsonString(envelope.valid_for[i]);
+    }
+    out << "],\"not_valid_for\":[";
+    for (std::size_t i = 0; i < envelope.not_valid_for.size(); ++i) {
+        if (i > 0) out << ',';
+        out << jsonString(envelope.not_valid_for[i]);
+    }
+    out << "],\"assumptions\":[";
+    for (std::size_t i = 0; i < envelope.assumptions.size(); ++i) {
+        if (i > 0) out << ',';
+        out << jsonString(envelope.assumptions[i]);
+    }
+    out << "]}";
+}
+
+void writeUncertaintyBands(std::ostringstream& out, const std::vector<UncertainValue>& bands) {
+    out << '[';
+    for (std::size_t i = 0; i < bands.size(); ++i) {
+        if (i > 0) out << ',';
+        const auto& band = bands[i];
+        out << '{'
+            << "\"variable\":" << jsonString(band.variable) << ','
+            << "\"mean\":" << jsonNumber(band.value.mean) << ','
+            << "\"stddev\":" << jsonNumber(band.value.stddev) << ','
+            << "\"lower90\":" << jsonNumber(band.value.lower90) << ','
+            << "\"upper90\":" << jsonNumber(band.value.upper90) << ','
+            << "\"confidence\":" << jsonNumber(band.value.confidence) << ','
+            << "\"evidence_count\":" << band.value.evidence_count << ','
+            << "\"source\":" << jsonString(band.source) << ','
+            << "\"validity_context\":" << jsonString(band.validity_context)
+            << '}';
+    }
+    out << ']';
+}
+
+void writeBranchSummaries(std::ostringstream& out, const std::vector<MonteCarloBranchSummary>& summaries) {
+    out << '[';
+    for (std::size_t i = 0; i < summaries.size(); ++i) {
+        if (i > 0) out << ',';
+        const auto& branch = summaries[i];
+        out << '{'
+            << "\"action\":" << jsonString(toString(branch.action)) << ','
+            << "\"target\":" << jsonString(branch.target) << ','
+            << "\"replicates\":" << branch.replicates << ','
+            << "\"baseline_success_probability\":" << jsonNumber(branch.baseline_success_probability) << ','
+            << "\"intervention_success_probability\":" << jsonNumber(branch.intervention_success_probability) << ','
+            << "\"expected_mission_gain_mean\":" << jsonNumber(branch.expected_mission_gain_mean) << ','
+            << "\"expected_mission_gain_lower90\":" << jsonNumber(branch.expected_mission_gain_lower90) << ','
+            << "\"expected_mission_gain_upper90\":" << jsonNumber(branch.expected_mission_gain_upper90) << ','
+            << "\"detection_time_mean\":" << branch.detection_time_mean << ','
+            << "\"detection_time_lower90\":" << branch.detection_time_lower90 << ','
+            << "\"detection_time_upper90\":" << branch.detection_time_upper90 << ','
+            << "\"downside_risk\":" << jsonNumber(branch.downside_risk) << ','
+            << "\"confidence\":" << jsonNumber(branch.confidence)
+            << '}';
+    }
+    out << ']';
+}
+
+void writeConfounders(std::ostringstream& out, const std::vector<ConfounderConfig>& confounders) {
+    out << '[';
+    for (std::size_t i = 0; i < confounders.size(); ++i) {
+        if (i > 0) out << ',';
+        const auto& c = confounders[i];
+        out << '{'
+            << "\"id\":" << jsonString(c.id) << ','
+            << "\"label\":" << jsonString(c.label) << ','
+            << "\"variable\":" << jsonString(c.variable) << ','
+            << "\"strength\":" << jsonNumber(c.strength) << ','
+            << "\"onset_tick\":" << c.onset_tick << ','
+            << "\"active\":" << jsonBool(c.active) << ','
+            << "\"explanation\":" << jsonString(c.explanation)
+            << '}';
+    }
+    out << ']';
+}
+
+void writeRealism(std::ostringstream& out, const WorldState& world) {
+    out << '{'
+        << "\"realism_level\":" << jsonString(world.realism.realism_level) << ','
+        << "\"red_adversary\":{" 
+        << "\"policy\":" << jsonString(toString(world.realism.red_adversary.mode)) << ','
+        << "\"initial_access_probability\":" << jsonNumber(world.realism.red_adversary.initial_access_probability) << ','
+        << "\"stealth_weight\":" << jsonNumber(world.realism.red_adversary.stealth_weight) << ','
+        << "\"mission_effect_weight\":" << jsonNumber(world.realism.red_adversary.mission_effect_weight) << ','
+        << "\"max_actions\":" << world.realism.red_adversary.max_actions << ','
+        << "\"target_score_uas\":" << jsonNumber(world.realism_runtime.red_target_score_uas) << ','
+        << "\"target_score_relay\":" << jsonNumber(world.realism_runtime.red_target_score_relay) << ','
+        << "\"last_decision_summary\":" << jsonString(world.realism_runtime.last_red_decision_summary)
+        << "},\"partial_observability\":{" 
+        << "\"p_cyber_compromise\":" << jsonNumber(world.realism_runtime.blue_hypotheses.cyber_compromise) << ','
+        << "\"p_weather_degradation\":" << jsonNumber(world.realism_runtime.blue_hypotheses.weather_degradation) << ','
+        << "\"p_sensor_fault\":" << jsonNumber(world.realism_runtime.blue_hypotheses.sensor_fault) << ','
+        << "\"p_relay_failure\":" << jsonNumber(world.realism_runtime.blue_hypotheses.relay_failure) << ','
+        << "\"p_unknown\":" << jsonNumber(world.realism_runtime.blue_hypotheses.unknown)
+        << "},\"uncertainty_bands\":";
+    writeUncertaintyBands(out, world.realism_runtime.uncertainty_bands);
+    out << ",\"branch_summaries\":";
+    writeBranchSummaries(out, world.realism_runtime.latest_branch_summaries);
+    out << ",\"confounders\":";
+    writeConfounders(out, world.realism.confounders);
+    out << ",\"validity_envelope\":";
+    writeValidityEnvelope(out, world.realism.validity_envelope);
+    out << ",\"last_update_tick\":" << world.realism_runtime.last_realism_update_tick
+        << '}';
 }
 
 std::vector<std::array<double, 2>> circlePolygon(double lon, double lat, double radius_km, int points = 32) {
@@ -486,6 +637,8 @@ std::string buildSimFrameJson(
     } else {
         out << "[]";
     }
+    out << ",\"realism\":";
+    writeRealism(out, world);
     out << ",\"map_overlays\":";
     writeMapOverlays(out, tick, world);
     if (options.include_budgets) {

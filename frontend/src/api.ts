@@ -1,5 +1,7 @@
 import type { BranchResult, CausalSubgraph, DashboardData, MissionMetrics, RunIdentity, SimulationCommandInput } from "./types";
 import type { PlaybackData } from "./playback";
+import type { EvidenceBundleManifest, RunEvidenceSummary } from "./realism/types";
+import type { EvaluationReport, ScenarioPackManifest } from "./evaluation/types";
 
 export interface PlaybackRequestOptions {
   scenario: string;
@@ -51,7 +53,7 @@ export async function createRun(options: CreateRunOptions): Promise<RunRecord> {
     body: JSON.stringify({
       scenario: options.scenario,
       seed: options.seed,
-      authorization_mode: options.authorizationMode ?? "human_hold",
+      authorization_mode: options.authorizationMode ?? "policy_auto",
       branch_id: options.branchId,
       parent_run_id: options.parentRunId,
     }),
@@ -231,6 +233,85 @@ export async function fetchProvenance(scenario: string) {
   const response = await fetch(`/api/provenance?scenario=${encodeURIComponent(scenario)}`);
   if (!response.ok) {
     return null;
+  }
+  return response.json();
+}
+
+export async function fetchRunEvidence(runId: string): Promise<RunEvidenceSummary> {
+  const response = await fetch(`/api/runs/${runId}/evidence`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Run evidence failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchRunCoaGates(runId: string): Promise<{ run_id: string; coa_gate_results: RunEvidenceSummary["coaGateResults"] }> {
+  const response = await fetch(`/api/runs/${runId}/coa-gates`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `COA gates failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchRunCausalClaims(runId: string): Promise<{
+  run_id: string;
+  claims: RunEvidenceSummary["causalClaims"];
+  credibility_assessments: RunEvidenceSummary["credibilityAssessments"];
+  planted_truth?: unknown;
+  warning?: string | null;
+}> {
+  const response = await fetch(`/api/runs/${runId}/causal-claims`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Causal claims failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchEvidenceBundleManifest(runId: string): Promise<EvidenceBundleManifest> {
+  const response = await fetch(`/api/runs/${runId}/evidence-bundle`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Evidence bundle failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export function evidenceBundleDownloadUrl(runId: string): string {
+  return `/api/runs/${runId}/evidence-bundle?download=1`;
+}
+
+
+
+export async function fetchRunEvaluation(runId: string): Promise<EvaluationReport> {
+  const response = await fetch(`/api/runs/${runId}/evaluation`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Run evaluation failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchEvaluationScenarioPack(): Promise<ScenarioPackManifest> {
+  const response = await fetch("/api/eval/scenario-pack");
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Scenario pack fetch failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function runBlindPackEvaluation(options: { runId: string; seeds?: number[] }): Promise<EvaluationReport> {
+  const response = await fetch("/api/eval/blind-pack", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id: options.runId, seeds: options.seeds ?? [] }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Blind pack evaluation failed (${response.status})`);
   }
   return response.json();
 }

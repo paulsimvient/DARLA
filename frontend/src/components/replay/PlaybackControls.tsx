@@ -25,39 +25,32 @@ export default function PlaybackControls({
   playback,
   currentTick,
   liveTick = currentTick,
-  timelineMode = "follow",
   onTickChange,
   isPlaying,
   onPlayingChange,
   onFollowLive,
-  onTimelineModeChange,
-  liveMode = false,
   replayViewLabel,
   groupFooterStatus,
 }: PlaybackControlsProps) {
   const { playbackSpeed, setPlaybackSpeed } = useSimulation();
-  const followActive = liveMode && timelineMode === "follow";
-
-  const pauseLiveFollow = useCallback(() => {
-    onTimelineModeChange?.("inspect");
+  const pausePlayback = useCallback(() => {
     onPlayingChange(false);
-  }, [onPlayingChange, onTimelineModeChange]);
+  }, [onPlayingChange]);
 
-  const resumeLiveFollow = useCallback(() => {
-    onFollowLive?.();
-  }, [onFollowLive]);
+  const resumePlayback = useCallback(() => {
+    // Spacebar / Play should control only the local playback clock.
+    // Jumping to live is a separate explicit action so it cannot pin/freeze
+    // the playhead through the follow-live path.
+    onPlayingChange(true);
+  }, [onPlayingChange]);
 
   const togglePlayback = useCallback(() => {
-    if (liveMode) {
-      if (followActive) {
-        pauseLiveFollow();
-      } else {
-        resumeLiveFollow();
-      }
+    if (isPlaying) {
+      pausePlayback();
       return;
     }
-    onPlayingChange(!isPlaying);
-  }, [followActive, isPlaying, liveMode, onPlayingChange, pauseLiveFollow, resumeLiveFollow]);
+    resumePlayback();
+  }, [isPlaying, pausePlayback, resumePlayback]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -83,7 +76,7 @@ export default function PlaybackControls({
 
   const frame = frameAtTick(playback.frames, currentTick);
   const pastCutoff = currentTick >= playback.mission_cutoff;
-  const canFollowLive = liveMode && timelineMode === "inspect" && onFollowLive && liveTick > currentTick;
+  const canFollowLive = Boolean(onFollowLive && liveTick > currentTick + 1);
 
   if (!frame) {
     return (
@@ -97,13 +90,13 @@ export default function PlaybackControls({
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-darla-border bg-darla-surface px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="darla-btn" onClick={togglePlayback}>
-          {followActive ? <Pause size={14} /> : <Play size={14} />}
-          {followActive ? "Pause follow" : liveMode ? "Follow live" : "Play"}
+          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          {isPlaying ? "Pause" : "Play"}
         </button>
         {canFollowLive ? (
           <button type="button" className="darla-btn darla-btn-primary" onClick={onFollowLive}>
             <Radio size={14} />
-            Follow Live T+{liveTick}
+            Jump to Latest T+{liveTick}
           </button>
         ) : null}
         <button

@@ -9,6 +9,7 @@
 #include "sim-events/SimEvent.h"
 
 #include <fcntl.h>
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -62,25 +63,31 @@ void drainStdinCommands(SimulationKernel& kernel) {
     }
 }
 
-void waitForReviewRelease(SimulationKernel& kernel) {
+std::string buildReviewHeartbeatJson(Tick frame_tick, const WorldState& world);
+
+void waitForReviewRelease(SimulationKernel& kernel, Tick frame_tick) {
     const int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
     while (true) {
         char buffer[4096];
         const ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
-        if (bytes <= 0) continue;
-        buffer[bytes] = '\0';
+        if (bytes > 0) {
+            buffer[bytes] = '\0';
 
-        std::istringstream stream(buffer);
-        std::string line;
-        while (std::getline(stream, line)) {
-            std::string command_type;
-            if (processStdinLine(kernel, line, command_type) && releasesReviewHold(command_type)) {
-                fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-                return;
+            std::istringstream stream(buffer);
+            std::string line;
+            while (std::getline(stream, line)) {
+                std::string command_type;
+                if (processStdinLine(kernel, line, command_type) && releasesReviewHold(command_type)) {
+                    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+                    return;
+                }
             }
         }
+
+        emitSse("heartbeat", buildReviewHeartbeatJson(frame_tick, kernel.world()));
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 }
 
@@ -96,6 +103,23 @@ bool hasCoaReviewEvent(const std::vector<const SimEvent*>& tick_events) {
 std::string buildReviewHoldJson(Tick frame_tick, const WorldState& world) {
     std::ostringstream out;
     out << "{\"tick\":" << frame_tick << ",\"coa_ids\":[";
+    bool first = true;
+    for (const auto& coa : world.coa_log) {
+        if (coa.proposed_tick != frame_tick) continue;
+        if (!first) out << ',';
+        first = false;
+        out << coa.id;
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string buildReviewHeartbeatJson(Tick frame_tick, const WorldState& world) {
+    std::ostringstream out;
+    out << "{\"tick\":" << frame_tick
+        << ",\"state\":\"review_hold\""
+        << ",\"message\":\"Waiting for human COA review\""
+        << ",\"coa_ids\":[";
     bool first = true;
     for (const auto& coa : world.coa_log) {
         if (coa.proposed_tick != frame_tick) continue;
@@ -210,7 +234,7 @@ int main(int argc, char** argv) {
 
             if (shouldPauseForReview(scenario, options.authorization_mode, tick_events)) {
                 emitSse("review_hold", buildReviewHoldJson(frame_tick, kernel.world()));
-                waitForReviewRelease(kernel);
+                waitForReviewRelease(kernel, frame_tick);
             }
 
             if (scenario.timeline.tick_pacing_ms > 0) {
